@@ -1,7 +1,7 @@
 import { Router, type IRouter, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { ordersTable, orderItemsTable, customersTable, usersTable, productsTable, notificationsTable, deliveryLogsTable, orderHistoryTable } from "@workspace/db/schema";
-import { eq, and, SQL, sql, gte } from "drizzle-orm";
+import { eq, and, SQL, sql, gte, asc } from "drizzle-orm";
 import { authenticateToken, requireAdmin, AuthPayload } from "../middlewares/auth";
 import { CreateOrderBody, UpdateOrderBody, UpdateOrderStatusBody } from "@workspace/api-zod";
 
@@ -224,6 +224,7 @@ router.get("/orders/:id", authenticateToken, async (req: Request, res: Response)
 router.put("/orders/:id", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
   const id = parseInt(String(req.params["id"] ?? ""), 10);
   if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
+  const authReq = req as AuthRequest;
   const body = UpdateOrderBody.safeParse(req.body);
   if (!body.success) {
     res.status(400).json({ message: "بيانات التعديل غير صحيحة" });
@@ -237,6 +238,7 @@ router.put("/orders/:id", authenticateToken, requireAdmin, async (req: Request, 
   }
 
   const oldAgentId = existing[0].agentId;
+  const oldStatus = existing[0].status;
 
   const updates: Partial<typeof ordersTable.$inferInsert> = {};
   if (body.data.customerId !== undefined) updates.customerId = body.data.customerId;
@@ -247,6 +249,16 @@ router.put("/orders/:id", authenticateToken, requireAdmin, async (req: Request, 
   if (body.data.notes !== undefined) updates.notes = body.data.notes;
 
   await db.update(ordersTable).set(updates).where(eq(ordersTable.id, id));
+
+  // Log history if status changed via PUT
+  if (body.data.status !== undefined && body.data.status !== oldStatus) {
+    await db.insert(orderHistoryTable).values({
+      orderId: id,
+      changedBy: authReq.user.userId,
+      oldStatus: oldStatus as typeof orderHistoryTable.$inferInsert["oldStatus"],
+      newStatus: body.data.status as typeof orderHistoryTable.$inferInsert["newStatus"],
+    });
+  }
 
   if (body.data.items !== undefined) {
     await db.delete(orderItemsTable).where(eq(orderItemsTable.orderId, id));
@@ -378,20 +390,29 @@ router.get("/orders/:id/history", authenticateToken, async (req: Request, res: R
     return;
   }
 
-  const history = await db.select().from(orderHistoryTable).where(eq(orderHistoryTable.orderId, id));
-  const historyWithUsers = await Promise.all(history.map(async (entry) => {
-    const [user] = await db.select({ id: usersTable.id, name: usersTable.name }).from(usersTable).where(eq(usersTable.id, entry.changedBy));
-    return {
-      id: entry.id,
-      orderId: entry.orderId,
-      changedBy: user ? { id: user.id, name: user.name } : { id: entry.changedBy, name: "مستخدم محذوف" },
-      oldStatus: entry.oldStatus,
-      newStatus: entry.newStatus,
-      changedAt: entry.changedAt.toISOString(),
-    };
-  }));
+  const rows = await db
+    .select({
+      id: orderHistoryTable.id,
+      orderId: orderHistoryTable.orderId,
+      changedById: orderHistoryTable.changedBy,
+      changedByName: usersTable.name,
+      oldStatus: orderHistoryTable.oldStatus,
+      newStatus: orderHistoryTable.newStatus,
+      changedAt: orderHistoryTable.changedAt,
+    })
+    .from(orderHistoryTable)
+    .leftJoin(usersTable, eq(orderHistoryTable.changedBy, usersTable.id))
+    .where(eq(orderHistoryTable.orderId, id))
+    .orderBy(asc(orderHistoryTable.id));
 
-  res.json(historyWithUsers.sort((a, b) => a.id - b.id));
+  res.json(rows.map(row => ({
+    id: row.id,
+    orderId: row.orderId,
+    changedBy: { id: row.changedById, name: row.changedByName ?? "مستخدم محذوف" },
+    oldStatus: row.oldStatus,
+    newStatus: row.newStatus,
+    changedAt: row.changedAt.toISOString(),
+  })));
 });
 
 export default router;

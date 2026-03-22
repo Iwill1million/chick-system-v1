@@ -505,6 +505,29 @@ paths:
               schema:
                 $ref: "#/components/schemas/OrderWithDetails"
 
+  /orders/{id}/history:
+    get:
+      operationId: getOrderHistory
+      tags: [orders]
+      summary: Get order status change history
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Order history entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OrderHistoryEntry"
+
   /delivery-logs:
     post:
       operationId: createDeliveryLog
@@ -940,6 +963,37 @@ components:
         - productId
         - quantity
         - unitPrice
+
+    OrderHistoryEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        orderId:
+          type: integer
+        changedBy:
+          type: object
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+          required:
+            - id
+            - name
+        oldStatus:
+          $ref: "#/components/schemas/OrderWithDetailsStatus"
+        newStatus:
+          $ref: "#/components/schemas/OrderWithDetailsStatus"
+        changedAt:
+          type: string
+      required:
+        - id
+        - orderId
+        - changedBy
+        - oldStatus
+        - newStatus
+        - changedAt
 
     DeliveryLog:
       type: object
