@@ -145,21 +145,31 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Sidebar (Desktop + Mobile overlay) */}
       <AnimatePresence>
         {isMobileMenuOpen && (
-          <motion.aside
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            transition={{ type: "spring", bounce: 0, duration: 0.3 }}
-            className="fixed inset-y-0 right-0 z-40 w-72 bg-card border-l border-border flex flex-col md:hidden"
-          >
-            <SidebarContent
-              user={user}
-              links={links}
-              location={location}
-              logout={logout}
-              onClose={() => setIsMobileMenuOpen(false)}
+          <>
+            {/* Backdrop — closes sidebar on tap */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-30 bg-black/40 md:hidden"
+              onClick={() => setIsMobileMenuOpen(false)}
             />
-          </motion.aside>
+            <motion.aside
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", bounce: 0, duration: 0.3 }}
+              className="fixed inset-y-0 right-0 z-40 w-72 bg-card border-l border-border flex flex-col md:hidden"
+            >
+              <SidebarContent
+                user={user}
+                links={links}
+                location={location}
+                logout={logout}
+                onClose={() => setIsMobileMenuOpen(false)}
+              />
+            </motion.aside>
+          </>
         )}
       </AnimatePresence>
 

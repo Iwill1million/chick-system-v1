@@ -287,15 +287,26 @@ export default function Orders() {
                 ) : null;
               })()}
             </div>
-            <Select
-              label="المندوب"
-              options={[
-                { label: "— بدون مندوب —", value: "" },
-                ...agents.map((a) => ({ label: a.name, value: a.id })),
-              ]}
-              value={formData.agentId}
-              onChange={(e) => setFormData({ ...formData, agentId: e.target.value })}
-            />
+            <div className="space-y-2">
+              <Select
+                label="المندوب"
+                options={[
+                  { label: "— بدون مندوب —", value: "" },
+                  ...agents.map((a) => ({ label: a.name, value: a.id })),
+                ]}
+                value={formData.agentId}
+                onChange={(e) => setFormData({ ...formData, agentId: e.target.value })}
+              />
+              {formData.agentId && (() => {
+                const sel = agents.find(a => a.id === parseInt(formData.agentId));
+                return sel ? (
+                  <div className="p-3 bg-secondary/30 rounded-xl text-sm space-y-1">
+                    {sel.phone && <div className="flex justify-between"><span className="text-muted-foreground">الهاتف:</span> <span dir="ltr">{sel.phone}</span></div>}
+                    <div className="flex justify-between"><span className="text-muted-foreground">الدور:</span> <span>مندوب توصيل</span></div>
+                  </div>
+                ) : null;
+              })()}
+            </div>
             <Input
               label="تاريخ الطلب *"
               required
@@ -314,8 +325,8 @@ export default function Orders() {
           <div className="p-4 border-2 border-border/50 rounded-xl bg-secondary/10 space-y-4">
             <h3 className="font-bold text-foreground mb-2">المنتجات</h3>
             {formData.items.map((item, index) => (
-              <div key={index} className="flex flex-wrap md:flex-nowrap gap-3 items-end">
-                <div className="flex-1 min-w-[200px]">
+              <div key={index} className="grid grid-cols-12 gap-3 items-end">
+                <div className="col-span-12 sm:col-span-5">
                   <Select
                     label={index === 0 ? "المنتج *" : undefined}
                     required
@@ -324,7 +335,7 @@ export default function Orders() {
                     onChange={(e) => handleProductChange(index, e.target.value)}
                   />
                 </div>
-                <div className="w-24">
+                <div className="col-span-5 sm:col-span-3">
                   <Input
                     label={index === 0 ? "الكمية *" : undefined}
                     required
@@ -334,7 +345,7 @@ export default function Orders() {
                     onChange={(e) => updateItem(index, "quantity", e.target.value)}
                   />
                 </div>
-                <div className="w-32">
+                <div className="col-span-5 sm:col-span-3">
                   <Input
                     label={index === 0 ? "السعر *" : undefined}
                     required
@@ -344,15 +355,17 @@ export default function Orders() {
                     onChange={(e) => updateItem(index, "unitPrice", e.target.value)}
                   />
                 </div>
-                {formData.items.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeItem(index)}
-                    className="p-3 text-destructive hover:bg-destructive/10 rounded-xl mb-1"
-                  >
-                    <MinusCircle className="w-5 h-5" />
-                  </button>
-                )}
+                <div className="col-span-2 sm:col-span-1 flex justify-center pb-1">
+                  {formData.items.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeItem(index)}
+                      className="p-2.5 text-destructive hover:bg-destructive/10 rounded-xl"
+                    >
+                      <MinusCircle className="w-5 h-5" />
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
             <Button
