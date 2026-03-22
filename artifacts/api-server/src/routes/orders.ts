@@ -1,7 +1,7 @@
 import { Router, type IRouter, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { ordersTable, orderItemsTable, customersTable, usersTable, productsTable, notificationsTable, deliveryLogsTable } from "@workspace/db/schema";
-import { eq, and, SQL, sql } from "drizzle-orm";
+import { eq, and, SQL, sql, gte } from "drizzle-orm";
 import { authenticateToken, requireAdmin, AuthPayload } from "../middlewares/auth";
 import { CreateOrderBody, UpdateOrderBody, UpdateOrderStatusBody } from "@workspace/api-zod";
 
@@ -111,64 +111,92 @@ router.post("/orders", authenticateToken, requireAdmin, async (req: Request, res
 
   const { customerId, agentId, orderDate, deliveryDate, notes, items } = body.data;
 
-  // Validate stock availability before creating the order
+  // Enforce positive integer quantities (server-side guard)
   if (items && items.length > 0) {
     for (const item of items) {
-      const [product] = await db.select().from(productsTable).where(eq(productsTable.id, item.productId));
-      if (!product) {
-        res.status(400).json({ message: `المنتج رقم ${item.productId} غير موجود` });
-        return;
-      }
-      if (product.stockQuantity < item.quantity) {
-        res.status(422).json({
-          message: `الكمية المطلوبة من "${product.name}" (${item.quantity}) تتجاوز المخزون المتاح (${product.stockQuantity} متبقية)`,
-        });
+      if (!Number.isInteger(item.quantity) || item.quantity < 1) {
+        res.status(400).json({ message: "الكمية يجب أن تكون عدداً صحيحاً موجباً (1 على الأقل)" });
         return;
       }
     }
   }
 
-  const order = await db.transaction(async (tx) => {
-    const inserted = await tx.insert(ordersTable).values({
-      customerId,
-      agentId: agentId ?? null,
-      status: "pending",
-      orderDate,
-      deliveryDate: deliveryDate ?? null,
-      notes: notes ?? null,
-    }).returning();
+  let order: typeof ordersTable.$inferSelect;
+  try {
+    order = await db.transaction(async (tx) => {
+      const inserted = await tx.insert(ordersTable).values({
+        customerId,
+        agentId: agentId ?? null,
+        status: "pending",
+        orderDate,
+        deliveryDate: deliveryDate ?? null,
+        notes: notes ?? null,
+      }).returning();
 
-    const newOrder = inserted[0];
+      const newOrder = inserted[0]!;
 
-    if (items && items.length > 0) {
-      await tx.insert(orderItemsTable).values(
-        items.map(item => ({
-          orderId: newOrder.id,
-          productId: item.productId,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-        }))
-      );
+      if (items && items.length > 0) {
+        // Aggregate total quantity requested per product (handles duplicate rows)
+        const productTotals = new Map<number, number>();
+        for (const item of items) {
+          productTotals.set(item.productId, (productTotals.get(item.productId) ?? 0) + item.quantity);
+        }
 
-      // Deduct stock quantity for each item
-      for (const item of items) {
-        await tx.update(productsTable)
-          .set({ stockQuantity: sql`${productsTable.stockQuantity} - ${item.quantity}` })
-          .where(eq(productsTable.id, item.productId));
+        // Atomic stock check + deduction per unique product inside the transaction
+        for (const [productId, totalQty] of productTotals) {
+          // Fetch current product info for error message
+          const [product] = await tx
+            .select({ id: productsTable.id, name: productsTable.name, stock: productsTable.stockQuantity })
+            .from(productsTable)
+            .where(eq(productsTable.id, productId));
+
+          if (!product) {
+            throw Object.assign(new Error(`المنتج رقم ${productId} غير موجود`), { httpStatus: 400 });
+          }
+
+          // Conditional update: only deducts if stock >= totalQty (atomic check+deduct)
+          const updated = await tx
+            .update(productsTable)
+            .set({ stockQuantity: sql`${productsTable.stockQuantity} - ${totalQty}` })
+            .where(and(eq(productsTable.id, productId), gte(productsTable.stockQuantity, totalQty)))
+            .returning({ id: productsTable.id });
+
+          if (updated.length === 0) {
+            throw Object.assign(
+              new Error(`الكمية المطلوبة من "${product.name}" (${totalQty}) تتجاوز المخزون المتاح (${product.stock} متبقية)`),
+              { httpStatus: 422 }
+            );
+          }
+        }
+
+        await tx.insert(orderItemsTable).values(
+          items.map(item => ({
+            orderId: newOrder.id,
+            productId: item.productId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+          }))
+        );
       }
-    }
 
-    if (agentId) {
-      await tx.insert(notificationsTable).values({
-        userId: agentId,
-        message: `تم تعيين طلب جديد رقم #${newOrder.id} إليك`,
-        orderId: newOrder.id,
-        isRead: false,
-      });
-    }
+      if (agentId) {
+        await tx.insert(notificationsTable).values({
+          userId: agentId,
+          message: `تم تعيين طلب جديد رقم #${newOrder.id} إليك`,
+          orderId: newOrder.id,
+          isRead: false,
+        });
+      }
 
-    return newOrder;
-  });
+      return newOrder;
+    });
+  } catch (err: unknown) {
+    if (err instanceof Error && "httpStatus" in err) {
+      res.status((err as { httpStatus: number }).httpStatus).json({ message: err.message });
+      return;
+    }
+    throw err;
+  }
 
   const result = await getOrderWithDetails(order.id);
   res.status(201).json(result);
