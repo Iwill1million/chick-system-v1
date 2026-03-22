@@ -7,6 +7,7 @@ import {
   customersTable,
   customerPaymentsTable,
   whatsappLogsTable,
+  companySettingsTable,
 } from "@workspace/db/schema";
 import { eq, inArray, desc } from "drizzle-orm";
 import { authenticateToken, requireAdmin } from "../middlewares/auth";
@@ -14,36 +15,47 @@ import twilio from "twilio";
 
 const router: IRouter = Router();
 
-function getTwilioClient() {
-  const sid = process.env["TWILIO_ACCOUNT_SID"];
-  const token = process.env["TWILIO_AUTH_TOKEN"];
-  if (!sid || !token) {
-    throw new Error("TWILIO_NOT_CONFIGURED");
-  }
+async function getTwilioCredentials() {
+  const rows = await db.select({
+    twilioAccountSid: companySettingsTable.twilioAccountSid,
+    twilioAuthToken: companySettingsTable.twilioAuthToken,
+    twilioWhatsappFrom: companySettingsTable.twilioWhatsappFrom,
+  }).from(companySettingsTable).where(eq(companySettingsTable.id, 1)).limit(1);
+
+  const dbRow = rows[0];
+  const sid = (dbRow?.twilioAccountSid?.trim()) || process.env["TWILIO_ACCOUNT_SID"] || "";
+  const token = (dbRow?.twilioAuthToken?.trim()) || process.env["TWILIO_AUTH_TOKEN"] || "";
+  const from = (dbRow?.twilioWhatsappFrom?.trim()) || process.env["TWILIO_WHATSAPP_FROM"] || "";
+
+  return { sid, token, from };
+}
+
+async function getTwilioClient() {
+  const { sid, token } = await getTwilioCredentials();
+  if (!sid || !token) throw new Error("TWILIO_NOT_CONFIGURED");
   return twilio(sid, token);
 }
 
-function getTwilioFrom(): string {
-  const from = process.env["TWILIO_WHATSAPP_FROM"];
+async function getTwilioFrom(): Promise<string> {
+  const { from } = await getTwilioCredentials();
   if (!from) throw new Error("TWILIO_NOT_CONFIGURED");
   return from.startsWith("whatsapp:") ? from : `whatsapp:${from}`;
 }
 
 function normalizePhone(phone: string): string {
-  const digits = phone.replace(/\D/g, "");
+  const trimmed = phone.trim();
+  if (trimmed.startsWith("+")) {
+    return trimmed;
+  }
+  const digits = trimmed.replace(/\D/g, "");
   if (digits.startsWith("0")) {
     return `+966${digits.slice(1)}`;
-  }
-  if (!digits.startsWith("+")) {
-    return `+${digits}`;
   }
   return `+${digits}`;
 }
 
-router.get("/whatsapp/config-status", authenticateToken, requireAdmin, (_req: Request, res: Response) => {
-  const sid = process.env["TWILIO_ACCOUNT_SID"];
-  const token = process.env["TWILIO_AUTH_TOKEN"];
-  const from = process.env["TWILIO_WHATSAPP_FROM"];
+router.get("/whatsapp/config-status", authenticateToken, requireAdmin, async (_req: Request, res: Response) => {
+  const { sid, token, from } = await getTwilioCredentials();
   res.json({
     configured: !!(sid && token && from),
     hasSid: !!sid,
@@ -55,13 +67,14 @@ router.get("/whatsapp/config-status", authenticateToken, requireAdmin, (_req: Re
 
 router.post("/whatsapp/test-ping", authenticateToken, requireAdmin, async (_req: Request, res: Response) => {
   try {
-    const client = getTwilioClient();
-    const account = await client.api.accounts(process.env["TWILIO_ACCOUNT_SID"]!).fetch();
+    const { sid } = await getTwilioCredentials();
+    const client = await getTwilioClient();
+    const account = await client.api.accounts(sid).fetch();
     res.json({ ok: true, accountName: account.friendlyName, status: account.status });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "خطأ غير معروف";
     if (msg === "TWILIO_NOT_CONFIGURED") {
-      res.status(400).json({ ok: false, error: "لم يتم إعداد بيانات Twilio في متغيرات البيئة" });
+      res.status(400).json({ ok: false, error: "لم يتم إعداد بيانات Twilio بعد" });
     } else {
       res.status(502).json({ ok: false, error: msg });
     }
@@ -114,8 +127,8 @@ router.post(
     const toPhone = normalizePhone(customer.phone);
 
     try {
-      const client = getTwilioClient();
-      await client.messages.create({ from: getTwilioFrom(), to: `whatsapp:${toPhone}`, body });
+      const [client, twilioFrom] = await Promise.all([getTwilioClient(), getTwilioFrom()]);
+      await client.messages.create({ from: twilioFrom, to: `whatsapp:${toPhone}`, body });
 
       await db.insert(whatsappLogsTable).values({
         customerId: customer.id,
@@ -184,8 +197,8 @@ router.post(
     const toPhone = normalizePhone(customer.phone);
 
     try {
-      const client = getTwilioClient();
-      await client.messages.create({ from: getTwilioFrom(), to: `whatsapp:${toPhone}`, body });
+      const [client, twilioFrom] = await Promise.all([getTwilioClient(), getTwilioFrom()]);
+      await client.messages.create({ from: twilioFrom, to: `whatsapp:${toPhone}`, body });
 
       await db.insert(whatsappLogsTable).values({
         customerId: customer.id,
@@ -266,8 +279,8 @@ router.post(
     const toPhone = normalizePhone(customer.phone);
 
     try {
-      const client = getTwilioClient();
-      await client.messages.create({ from: getTwilioFrom(), to: `whatsapp:${toPhone}`, body });
+      const [client, twilioFrom] = await Promise.all([getTwilioClient(), getTwilioFrom()]);
+      await client.messages.create({ from: twilioFrom, to: `whatsapp:${toPhone}`, body });
 
       await db.insert(whatsappLogsTable).values({
         customerId: customer.id,

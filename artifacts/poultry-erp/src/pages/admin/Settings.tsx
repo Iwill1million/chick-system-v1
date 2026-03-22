@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button, Card } from "@/components/ui-components";
 import { customFetch } from "@workspace/api-client-react";
 import {
@@ -14,36 +14,20 @@ import {
   Loader2,
   MessageCircle,
   Wifi,
-  WifiOff,
-  ShieldCheck,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
-interface CompanySettings {
+interface AdminSettings {
   name: string;
   address: string;
   phone: string;
   commercialRegNo: string;
   logoUrl: string;
-}
-
-async function fetchSettings(): Promise<CompanySettings> {
-  return customFetch<CompanySettings>("/api/settings", { method: "GET" });
-}
-
-async function saveSettings(data: CompanySettings): Promise<CompanySettings> {
-  return customFetch<CompanySettings>("/api/settings", {
-    method: "PUT",
-    body: JSON.stringify(data),
-    headers: { "Content-Type": "application/json" },
-  });
-}
-
-interface WhatsappConfigStatus {
-  configured: boolean;
-  hasSid: boolean;
-  hasToken: boolean;
-  hasFrom: boolean;
-  fromNumber: string | null;
+  twilioAccountSid: string;
+  twilioAuthToken: string;
+  twilioWhatsappFrom: string;
+  twilioConfigured: boolean;
 }
 
 interface PingResult {
@@ -53,27 +37,47 @@ interface PingResult {
   error?: string;
 }
 
+const PLACEHOLDER_TOKEN = "***configured***";
+
+async function fetchAdminSettings(): Promise<AdminSettings> {
+  return customFetch<AdminSettings>("/api/settings/admin", { method: "GET" });
+}
+
 export default function Settings() {
-  const [form, setForm] = useState<CompanySettings>({
+  const queryClient = useQueryClient();
+
+  const [form, setForm] = useState<AdminSettings>({
     name: "",
     address: "",
     phone: "",
     commercialRegNo: "",
     logoUrl: "",
+    twilioAccountSid: "",
+    twilioAuthToken: "",
+    twilioWhatsappFrom: "",
+    twilioConfigured: false,
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [showToken, setShowToken] = useState(false);
   const [pingResult, setPingResult] = useState<PingResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: waStatus } = useQuery<WhatsappConfigStatus>({
-    queryKey: ["/api/whatsapp/config-status"],
-    queryFn: () => customFetch<WhatsappConfigStatus>("/api/whatsapp/config-status"),
-    staleTime: 30000,
-  });
+  useEffect(() => {
+    fetchAdminSettings()
+      .then((data) => {
+        setForm(data);
+        setIsLoading(false);
+      })
+      .catch(() => {
+        setError("تعذّر تحميل الإعدادات");
+        setIsLoading(false);
+      });
+  }, []);
 
   const pingMut = useMutation({
     mutationFn: () => customFetch<PingResult>("/api/whatsapp/test-ping", { method: "POST" }),
@@ -110,24 +114,10 @@ export default function Settings() {
     return serveUrl;
   };
 
-  useEffect(() => {
-    fetchSettings()
-      .then((data) => {
-        setForm(data);
-        setIsLoading(false);
-      })
-      .catch(() => {
-        setError("تعذّر تحميل الإعدادات");
-        setIsLoading(false);
-      });
-  }, []);
-
-  const handleChange = (field: keyof CompanySettings, value: string) => {
+  const handleChange = (field: keyof AdminSettings, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     setSaved(false);
   };
-
-  const [isUploading, setIsUploading] = useState(false);
 
   const handleLogoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -151,9 +141,25 @@ export default function Settings() {
     setIsSaving(true);
     setError(null);
     try {
-      const updated = await saveSettings(form);
+      const payload = {
+        name: form.name,
+        address: form.address,
+        phone: form.phone,
+        commercialRegNo: form.commercialRegNo,
+        logoUrl: form.logoUrl,
+        twilioAccountSid: form.twilioAccountSid,
+        twilioAuthToken: form.twilioAuthToken,
+        twilioWhatsappFrom: form.twilioWhatsappFrom,
+      };
+      const updated = await customFetch<AdminSettings>("/api/settings", {
+        method: "PUT",
+        body: JSON.stringify(payload),
+        headers: { "Content-Type": "application/json" },
+      });
       setForm(updated);
       setSaved(true);
+      setPingResult(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp/config-status"] });
       setTimeout(() => setSaved(false), 3000);
     } catch {
       setError("حدث خطأ أثناء الحفظ، يرجى المحاولة مجدداً");
@@ -176,6 +182,7 @@ export default function Settings() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Company Identity */}
         <Card className="p-6 space-y-4">
           <h3 className="font-bold text-base flex items-center gap-2">
             <Building2 className="w-5 h-5 text-primary" /> هوية الشركة
@@ -242,6 +249,7 @@ export default function Settings() {
           </div>
         </Card>
 
+        {/* Logo */}
         <Card className="p-6 space-y-4">
           <h3 className="font-bold text-base flex items-center gap-2">
             <Image className="w-5 h-5 text-primary" /> شعار الشركة
@@ -256,15 +264,9 @@ export default function Settings() {
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isUploading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    جاري رفع الشعار...
-                  </>
+                  <><Loader2 className="w-4 h-4 animate-spin" /> جاري رفع الشعار...</>
                 ) : (
-                  <>
-                    <Upload className="w-4 h-4" />
-                    رفع صورة الشعار
-                  </>
+                  <><Upload className="w-4 h-4" /> رفع صورة الشعار</>
                 )}
               </button>
               <span className="text-xs text-muted-foreground">PNG أو SVG موصى به</span>
@@ -290,9 +292,7 @@ export default function Settings() {
               />
             </div>
 
-            {uploadError && (
-              <p className="text-xs text-destructive">{uploadError}</p>
-            )}
+            {uploadError && <p className="text-xs text-destructive">{uploadError}</p>}
 
             {form.logoUrl && (
               <div className="mt-3 p-3 bg-secondary/30 rounded-xl border border-border flex items-center gap-3">
@@ -300,9 +300,7 @@ export default function Settings() {
                   src={form.logoUrl}
                   alt="معاينة الشعار"
                   className="h-14 w-auto object-contain"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = "none";
-                  }}
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                 />
                 <span className="text-xs text-muted-foreground">معاينة الشعار</span>
               </div>
@@ -310,69 +308,85 @@ export default function Settings() {
           </div>
         </Card>
 
-        <Card className="p-4 bg-primary/5 border-primary/20">
-          <p className="text-sm text-primary font-medium">
-            ستظهر هذه المعلومات في رأس الفاتورة المطبوعة فوراً بعد الحفظ.
-          </p>
-        </Card>
-
-        {/* WhatsApp Settings Section */}
+        {/* WhatsApp / Twilio Config */}
         <Card className="p-6 space-y-4">
-          <h3 className="font-bold text-base flex items-center gap-2">
-            <MessageCircle className="w-5 h-5 text-green-600" /> إعدادات واتساب (Twilio)
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-base flex items-center gap-2">
+              <MessageCircle className="w-5 h-5 text-green-600" /> إعدادات واتساب (Twilio)
+            </h3>
+            {form.twilioConfigured && (
+              <span className="text-xs px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full font-medium">مفعّل ✓</span>
+            )}
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            أدخل بيانات حساب Twilio الخاص بك لتفعيل إرسال إشعارات واتساب للعملاء.
+            البيانات تُحفظ بشكل آمن في قاعدة البيانات.
+          </p>
 
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              يتم إعداد بيانات Twilio عبر متغيرات البيئة على الخادم (وليس في قاعدة البيانات) لضمان الأمان.
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {[
-                { label: "Account SID", key: "hasSid" },
-                { label: "Auth Token", key: "hasToken" },
-                { label: "رقم المرسِل", key: "hasFrom" },
-              ].map(({ label, key }) => {
-                const isSet = waStatus?.[key as keyof WhatsappConfigStatus] as boolean | undefined;
-                return (
-                  <div
-                    key={key}
-                    className={`flex items-center gap-2 p-3 rounded-xl border text-sm ${
-                      isSet
-                        ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-                        : "bg-red-50 border-red-200 text-red-700"
-                    }`}
-                  >
-                    {isSet
-                      ? <ShieldCheck className="w-4 h-4 shrink-0" />
-                      : <WifiOff className="w-4 h-4 shrink-0" />
-                    }
-                    <span className="font-medium">{label}</span>
-                    <span className="mr-auto text-xs">{isSet ? "مضبوط ✓" : "غير مضبوط"}</span>
-                  </div>
-                );
-              })}
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-foreground">Account SID</label>
+              <input
+                type="text"
+                className="w-full bg-secondary/40 border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 font-mono"
+                placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                dir="ltr"
+                value={form.twilioAccountSid === PLACEHOLDER_TOKEN ? "" : form.twilioAccountSid}
+                onChange={(e) => handleChange("twilioAccountSid", e.target.value)}
+              />
+              {form.twilioAccountSid === PLACEHOLDER_TOKEN && (
+                <p className="text-xs text-emerald-600">✓ مضبوط — اتركه فارغاً للإبقاء على القيمة الحالية</p>
+              )}
             </div>
 
-            {waStatus?.fromNumber && (
-              <p className="text-xs text-muted-foreground" dir="ltr">
-                رقم الإرسال: <span className="font-mono font-bold">{waStatus.fromNumber}</span>
-              </p>
-            )}
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-foreground">Auth Token</label>
+              <div className="relative">
+                <input
+                  type={showToken ? "text" : "password"}
+                  className="w-full bg-secondary/40 border border-border rounded-xl px-4 py-3 pl-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 font-mono"
+                  placeholder="Auth Token السري"
+                  dir="ltr"
+                  value={form.twilioAuthToken === PLACEHOLDER_TOKEN ? "" : form.twilioAuthToken}
+                  onChange={(e) => handleChange("twilioAuthToken", e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowToken(!showToken)}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              {form.twilioAuthToken === PLACEHOLDER_TOKEN && (
+                <p className="text-xs text-emerald-600">✓ مضبوط — اتركه فارغاً للإبقاء على القيمة الحالية</p>
+              )}
+            </div>
 
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-foreground">رقم واتساب المرسِل</label>
+              <input
+                type="text"
+                className="w-full bg-secondary/40 border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 font-mono"
+                placeholder="+14155238886 أو whatsapp:+14155238886"
+                dir="ltr"
+                value={form.twilioWhatsappFrom}
+                onChange={(e) => handleChange("twilioWhatsappFrom", e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">رقم الـ Sandbox في Twilio مثلاً: +14155238886</p>
+            </div>
+
+            {/* Test Ping */}
             <div className="flex items-center gap-3 pt-1">
               <button
                 type="button"
                 onClick={() => { setPingResult(null); pingMut.mutate(); }}
-                disabled={pingMut.isPending || !waStatus?.configured}
+                disabled={pingMut.isPending || !form.twilioConfigured}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl border border-green-400 bg-green-50 hover:bg-green-100 text-green-800 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {pingMut.isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Wifi className="w-4 h-4" />
-                )}
-                اختبار الاتصال بـ Twilio
+                {pingMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wifi className="w-4 h-4" />}
+                اختبار الاتصال
               </button>
 
               {pingResult && (
@@ -384,16 +398,13 @@ export default function Settings() {
                 </span>
               )}
             </div>
-
-            {!waStatus?.configured && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs">
-                لتفعيل إشعارات واتساب، يجب إضافة متغيرات البيئة التالية في لوحة الإعدادات:<br />
-                <span className="font-mono">TWILIO_ACCOUNT_SID</span> ·{" "}
-                <span className="font-mono">TWILIO_AUTH_TOKEN</span> ·{" "}
-                <span className="font-mono">TWILIO_WHATSAPP_FROM</span>
-              </div>
-            )}
           </div>
+        </Card>
+
+        <Card className="p-4 bg-primary/5 border-primary/20">
+          <p className="text-sm text-primary font-medium">
+            ستظهر بيانات الشركة في رأس الفاتورة المطبوعة فوراً بعد الحفظ.
+          </p>
         </Card>
 
         {error && (
