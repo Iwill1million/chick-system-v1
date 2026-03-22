@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Button, Card } from "@/components/ui-components";
 import { customFetch } from "@workspace/api-client-react";
-import { useUpload } from "@workspace/object-storage-web";
 import {
   Building2,
   Phone,
@@ -49,17 +48,23 @@ export default function Settings() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { uploadFile, isUploading } = useUpload({
-    onSuccess: (response) => {
-      const serveUrl = `/api/storage${response.objectPath}`;
-      setForm((prev) => ({ ...prev, logoUrl: serveUrl }));
-      setSaved(false);
-      setUploadError(null);
-    },
-    onError: (err) => {
-      setUploadError(`فشل رفع الشعار: ${err.message}`);
-    },
-  });
+  const uploadLogo = async (file: File): Promise<string> => {
+    const token = localStorage.getItem("poultry_erp_token") ?? "";
+    const metaRes = await fetch("/api/storage/uploads/request-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || "image/png" }),
+    });
+    if (!metaRes.ok) throw new Error("فشل الحصول على رابط الرفع");
+    const { uploadURL, objectPath } = await metaRes.json() as { uploadURL: string; objectPath: string };
+    const uploadRes = await fetch(uploadURL, {
+      method: "PUT",
+      body: file,
+      headers: { "Content-Type": file.type || "image/png" },
+    });
+    if (!uploadRes.ok) throw new Error("فشل رفع الملف إلى التخزين");
+    return `/api/storage${objectPath}`;
+  };
 
   useEffect(() => {
     fetchSettings()
@@ -78,12 +83,23 @@ export default function Settings() {
     setSaved(false);
   };
 
+  const [isUploading, setIsUploading] = useState(false);
+
   const handleLogoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploadError(null);
-    await uploadFile(file);
-    e.target.value = "";
+    setIsUploading(true);
+    try {
+      const serveUrl = await uploadLogo(file);
+      setForm((prev) => ({ ...prev, logoUrl: serveUrl }));
+      setSaved(false);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "فشل رفع الشعار");
+    } finally {
+      setIsUploading(false);
+      e.target.value = "";
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
