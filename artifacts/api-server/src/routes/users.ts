@@ -34,6 +34,13 @@ router.post("/users", authenticateToken, requireAdmin, async (req: Request, res:
   }
 
   const { name, phone, username, password, role } = body.data;
+
+  const existing = await db.select().from(usersTable).where(eq(usersTable.username, username));
+  if (existing.length > 0) {
+    res.status(409).json({ message: "اسم المستخدم مستخدم بالفعل" });
+    return;
+  }
+
   const passwordHash = await bcrypt.hash(password, 10);
 
   const inserted = await db.insert(usersTable).values({
