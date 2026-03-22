@@ -1,6 +1,6 @@
 import { Router, type IRouter, Request, Response } from "express";
 import { db } from "@workspace/db";
-import { customersTable } from "@workspace/db/schema";
+import { customersTable, customerPaymentsTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { authenticateToken, requireAdmin } from "../middlewares/auth";
 import { CreateCustomerBody } from "@workspace/api-zod";
@@ -81,6 +81,7 @@ router.put("/customers/:id", authenticateToken, requireAdmin, async (req: Reques
 router.delete("/customers/:id", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
   const id = parseInt(String(req.params["id"] ?? ""), 10);
   if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
+  await db.delete(customerPaymentsTable).where(eq(customerPaymentsTable.customerId, id));
   await db.delete(customersTable).where(eq(customersTable.id, id));
   res.status(204).send();
 });

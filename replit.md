@@ -91,11 +91,17 @@ All endpoints are prefixed with `/api`.
 - `GET /api/notifications` — List notifications for current user
 - `POST /api/notifications/mark-read` — Mark notifications as read (`{ ids?: number[], all?: boolean }`)
 
+### Customer Payments (admin only)
+- `GET /api/customers/:id/payments` — List payments for a customer
+- `POST /api/customers/:id/payments` — Record a payment (`{ amount, paymentDate, notes? }`)
+- `DELETE /api/customers/:id/payments/:paymentId` — Delete a payment
+- `GET /api/customers/:id/statement` — Full customer statement (orders + payments + running balance + summary)
+
 ### Finance (admin only)
-- `GET /api/finance/summary` — Finance summary with optional `?from=YYYY-MM-DD&to=YYYY-MM-DD` date range
+- `GET /api/finance/summary` — Finance summary with optional `?from=YYYY-MM-DD&to=YYYY-MM-DD` date range. Includes `totalReceivables` (all-time customer balances).
 
 ## Database Schema
-Tables: `users`, `customers`, `products`, `orders`, `order_items`, `delivery_logs`, `notifications`
+Tables: `users`, `customers`, `customer_payments`, `products`, `orders`, `order_items`, `order_history`, `delivery_logs`, `notifications`
 
 Indexes:
 - `orders.agent_id`, `orders.status`, `orders.order_date`

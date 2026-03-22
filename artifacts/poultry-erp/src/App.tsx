@@ -7,6 +7,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/admin/Dashboard";
 import Customers from "@/pages/admin/Customers";
+import CustomerStatement from "@/pages/admin/CustomerStatement";
 import Products from "@/pages/admin/Products";
 import Orders from "@/pages/admin/Orders";
 import Agents from "@/pages/admin/Agents";
@@ -57,6 +58,9 @@ function Router() {
       {/* Admin Routes */}
       <Route path="/dashboard">
         <AdminRoute component={Dashboard} />
+      </Route>
+      <Route path="/customers/:id/statement">
+        <AdminRoute component={CustomerStatement} />
       </Route>
       <Route path="/customers">
         <AdminRoute component={Customers} />

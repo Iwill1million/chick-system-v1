@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { Product } from "@workspace/api-client-react";
 import { Card, Select, Input } from "@/components/ui-components";
 import { formatCurrency, statusLabels, statusColors } from "@/lib/utils";
-import { ShoppingCart, CheckCircle, TrendingUp, Wallet, ArrowUpRight, AlertTriangle } from "lucide-react";
+import { ShoppingCart, CheckCircle, TrendingUp, Wallet, ArrowUpRight, AlertTriangle, CreditCard } from "lucide-react";
 import {
   PieChart,
   Pie,
@@ -172,7 +172,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard
           title="إجمالي الإيرادات"
           value={formatCurrency(summary.totalRevenue)}
@@ -194,6 +194,11 @@ export default function Dashboard() {
           title="الطلبات المنجزة"
           value={summary.deliveredOrders.toString()}
           icon={CheckCircle}
+        />
+        <StatCard
+          title="إجمالي المستحقات"
+          value={formatCurrency((summary as any).totalReceivables ?? "0")}
+          icon={CreditCard}
         />
       </div>
 

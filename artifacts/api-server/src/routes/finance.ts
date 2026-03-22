@@ -1,6 +1,6 @@
 import { Router, type IRouter, Request, Response } from "express";
 import { db } from "@workspace/db";
-import { ordersTable, deliveryLogsTable, customersTable, productsTable, usersTable, orderItemsTable } from "@workspace/db/schema";
+import { ordersTable, deliveryLogsTable, customersTable, productsTable, usersTable, orderItemsTable, customerPaymentsTable } from "@workspace/db/schema";
 import { eq, gte, lte, and, inArray, SQL } from "drizzle-orm";
 import { authenticateToken, requireAdmin } from "../middlewares/auth";
 
@@ -31,19 +31,48 @@ router.get("/finance/summary", authenticateToken, requireAdmin, async (req: Requ
   }
   const ordersByStatus = Object.entries(statusCounts).map(([status, count]) => ({ status, count }));
 
+  const [allPaymentsForReceivables, allOrdersForReceivables, allOrderItemsForReceivables] = await Promise.all([
+    db.select().from(customerPaymentsTable),
+    db.select().from(ordersTable),
+    db.select().from(orderItemsTable),
+  ]);
+  const allCustomersForReceivables = await db.select().from(customersTable);
+
+  const nonCancelledOrderIds = new Set(allOrdersForReceivables.filter(o => o.status !== "cancelled").map(o => o.id));
+  const orderItemTotals = new Map<number, number>();
+  for (const item of allOrderItemsForReceivables) {
+    if (!nonCancelledOrderIds.has(item.orderId)) continue;
+    orderItemTotals.set(item.orderId, (orderItemTotals.get(item.orderId) ?? 0) + parseFloat(item.unitPrice) * item.quantity);
+  }
+
+  const customerOrderDebits = new Map<number, number>();
+  for (const order of allOrdersForReceivables) {
+    if (!nonCancelledOrderIds.has(order.id)) continue;
+    customerOrderDebits.set(order.customerId, (customerOrderDebits.get(order.customerId) ?? 0) + (orderItemTotals.get(order.id) ?? 0));
+  }
+
+  const customerPaymentTotals = new Map<number, number>();
+  for (const payment of allPaymentsForReceivables) {
+    customerPaymentTotals.set(payment.customerId, (customerPaymentTotals.get(payment.customerId) ?? 0) + parseFloat(payment.amount));
+  }
+
+  let totalReceivables = 0;
+  for (const c of allCustomersForReceivables) {
+    const balance = parseFloat(c.openingBalance as string) + (customerOrderDebits.get(c.id) ?? 0) - (customerPaymentTotals.get(c.id) ?? 0);
+    totalReceivables += balance;
+  }
+
   if (orderIds.length === 0) {
-    const [allCustomers, allProducts] = await Promise.all([
-      db.select().from(customersTable),
-      db.select().from(productsTable),
-    ]);
+    const allProducts = await db.select().from(productsTable);
     res.json({
       totalOrders: 0,
       deliveredOrders: 0,
       totalRevenue: "0.00",
       totalCollected: "0.00",
+      totalReceivables: totalReceivables.toFixed(2),
       ordersByStatus: [],
       agentPerformance: [],
-      customerBalances: allCustomers.map(c => ({ customerId: c.id, customerName: c.name, openingBalance: c.openingBalance, totalOrders: 0, totalCollected: "0.00" })),
+      customerBalances: allCustomersForReceivables.map(c => ({ customerId: c.id, customerName: c.name, openingBalance: c.openingBalance, totalOrders: 0, totalCollected: "0.00" })),
       productSales: allProducts.map(p => ({ productId: p.id, productName: p.name, unitsSold: 0, totalRevenue: "0.00" })),
     });
     return;
@@ -114,6 +143,7 @@ router.get("/finance/summary", authenticateToken, requireAdmin, async (req: Requ
     deliveredOrders,
     totalRevenue: totalRevenue.toFixed(2),
     totalCollected: totalCollected.toFixed(2),
+    totalReceivables: totalReceivables.toFixed(2),
     ordersByStatus,
     agentPerformance,
     customerBalances,
