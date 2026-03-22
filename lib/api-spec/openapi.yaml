@@ -763,7 +763,9 @@ paths:
     post:
       tags: [storage]
       operationId: requestUploadUrl
-      summary: Request a presigned URL for file upload
+      summary: Request a presigned URL for file upload (admin only)
+      security:
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -779,8 +781,55 @@ paths:
                 $ref: "#/components/schemas/RequestUploadUrlResponse"
         "400":
           description: Missing or invalid required fields
+        "401":
+          description: Unauthorized
+        "403":
+          description: Admin access required
         "500":
           description: Failed to generate upload URL
+
+  /storage/uploads/complete:
+    post:
+      tags: [storage]
+      operationId: completeUpload
+      summary: Mark an uploaded object as public-read and get serving URL (admin only)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [objectPath]
+              properties:
+                objectPath:
+                  type: string
+                  description: Object path returned by requestUploadUrl (e.g. /objects/uploads/uuid)
+      responses:
+        "200":
+          description: Upload finalized, object is now publicly readable
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [serveUrl, objectPath]
+                properties:
+                  serveUrl:
+                    type: string
+                    description: Public serving URL for the object
+                  objectPath:
+                    type: string
+        "400":
+          description: Invalid objectPath
+        "401":
+          description: Unauthorized
+        "403":
+          description: Admin access required
+        "404":
+          description: Object not found — upload may not have completed
+        "500":
+          description: Failed to finalize upload
 
   /storage/objects/{objectPath}:
     get:

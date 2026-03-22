@@ -393,3 +393,14 @@ export type GetFinanceSummaryParams = {
   from?: string;
   to?: string;
 };
+
+export type CompleteUploadBody = {
+  /** Object path returned by requestUploadUrl (e.g. /objects/uploads/uuid) */
+  objectPath: string;
+};
+
+export type CompleteUpload200 = {
+  /** Public serving URL for the object */
+  serveUrl: string;
+  objectPath: string;
+};

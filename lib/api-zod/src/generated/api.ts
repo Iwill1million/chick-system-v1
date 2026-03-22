@@ -810,7 +810,7 @@ export const UpdateSettingsResponse = zod.object({
 });
 
 /**
- * @summary Request a presigned URL for file upload
+ * @summary Request a presigned URL for file upload (admin only)
  */
 
 export const RequestUploadUrlBody = zod.object({
@@ -829,6 +829,22 @@ export const RequestUploadUrlResponse = zod.object({
       contentType: zod.string().min(1),
     })
     .optional(),
+});
+
+/**
+ * @summary Mark an uploaded object as public-read and get serving URL (admin only)
+ */
+export const CompleteUploadBody = zod.object({
+  objectPath: zod
+    .string()
+    .describe(
+      "Object path returned by requestUploadUrl (e.g. \/objects\/uploads\/uuid)",
+    ),
+});
+
+export const CompleteUploadResponse = zod.object({
+  serveUrl: zod.string().describe("Public serving URL for the object"),
+  objectPath: zod.string(),
 });
 
 /**

@@ -18,6 +18,8 @@ import type {
 
 import type {
   CompanySettings,
+  CompleteUpload200,
+  CompleteUploadBody,
   CreateCustomerPaymentRequest,
   CreateCustomerRequest,
   CreateDeliveryLogRequest,
@@ -3074,7 +3076,7 @@ export const useUpdateSettings = <
 };
 
 /**
- * @summary Request a presigned URL for file upload
+ * @summary Request a presigned URL for file upload (admin only)
  */
 export const getRequestUploadUrlUrl = () => {
   return `/api/storage/uploads/request-url`;
@@ -3137,7 +3139,7 @@ export type RequestUploadUrlMutationBody = BodyType<RequestUploadUrlBody>;
 export type RequestUploadUrlMutationError = ErrorType<void>;
 
 /**
- * @summary Request a presigned URL for file upload
+ * @summary Request a presigned URL for file upload (admin only)
  */
 export const useRequestUploadUrl = <
   TError = ErrorType<void>,
@@ -3157,6 +3159,92 @@ export const useRequestUploadUrl = <
   TContext
 > => {
   return useMutation(getRequestUploadUrlMutationOptions(options));
+};
+
+/**
+ * @summary Mark an uploaded object as public-read and get serving URL (admin only)
+ */
+export const getCompleteUploadUrl = () => {
+  return `/api/storage/uploads/complete`;
+};
+
+export const completeUpload = async (
+  completeUploadBody: CompleteUploadBody,
+  options?: RequestInit,
+): Promise<CompleteUpload200> => {
+  return customFetch<CompleteUpload200>(getCompleteUploadUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(completeUploadBody),
+  });
+};
+
+export const getCompleteUploadMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof completeUpload>>,
+    TError,
+    { data: BodyType<CompleteUploadBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof completeUpload>>,
+  TError,
+  { data: BodyType<CompleteUploadBody> },
+  TContext
+> => {
+  const mutationKey = ["completeUpload"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof completeUpload>>,
+    { data: BodyType<CompleteUploadBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return completeUpload(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CompleteUploadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof completeUpload>>
+>;
+export type CompleteUploadMutationBody = BodyType<CompleteUploadBody>;
+export type CompleteUploadMutationError = ErrorType<void>;
+
+/**
+ * @summary Mark an uploaded object as public-read and get serving URL (admin only)
+ */
+export const useCompleteUpload = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof completeUpload>>,
+    TError,
+    { data: BodyType<CompleteUploadBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof completeUpload>>,
+  TError,
+  { data: BodyType<CompleteUploadBody> },
+  TContext
+> => {
+  return useMutation(getCompleteUploadMutationOptions(options));
 };
 
 /**

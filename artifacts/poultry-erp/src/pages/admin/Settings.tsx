@@ -50,20 +50,31 @@ export default function Settings() {
 
   const uploadLogo = async (file: File): Promise<string> => {
     const token = localStorage.getItem("poultry_erp_token") ?? "";
+    const authHeader = { Authorization: `Bearer ${token}` };
+
     const metaRes = await fetch("/api/storage/uploads/request-url", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      headers: { "Content-Type": "application/json", ...authHeader },
       body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || "image/png" }),
     });
     if (!metaRes.ok) throw new Error("فشل الحصول على رابط الرفع");
     const { uploadURL, objectPath } = await metaRes.json() as { uploadURL: string; objectPath: string };
+
     const uploadRes = await fetch(uploadURL, {
       method: "PUT",
       body: file,
       headers: { "Content-Type": file.type || "image/png" },
     });
     if (!uploadRes.ok) throw new Error("فشل رفع الملف إلى التخزين");
-    return `/api/storage${objectPath}`;
+
+    const completeRes = await fetch("/api/storage/uploads/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeader },
+      body: JSON.stringify({ objectPath }),
+    });
+    if (!completeRes.ok) throw new Error("فشل تأكيد الرفع");
+    const { serveUrl } = await completeRes.json() as { serveUrl: string };
+    return serveUrl;
   };
 
   useEffect(() => {

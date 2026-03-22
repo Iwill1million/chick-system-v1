@@ -5,6 +5,7 @@ import {
   RequestUploadUrlResponse,
 } from "@workspace/api-zod";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
+import { ObjectPermission, canAccessObject } from "../lib/objectAcl";
 import { authenticateToken, requireAdmin } from "../middlewares/auth";
 
 const router: IRouter = Router();
@@ -36,6 +37,36 @@ router.post(
     } catch (error) {
       req.log.error({ err: error }, "Error generating upload URL");
       res.status(500).json({ error: "Failed to generate upload URL" });
+    }
+  }
+);
+
+router.post(
+  "/storage/uploads/complete",
+  authenticateToken,
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    const { objectPath } = req.body ?? {};
+    if (typeof objectPath !== "string" || !objectPath.startsWith("/objects/")) {
+      res.status(400).json({ error: "Invalid objectPath" });
+      return;
+    }
+
+    try {
+      await objectStorageService.trySetObjectEntityAclPolicy(objectPath, {
+        owner: "admin",
+        visibility: "public",
+      });
+
+      const serveUrl = `/api/storage${objectPath}`;
+      res.json({ serveUrl, objectPath });
+    } catch (error) {
+      if (error instanceof ObjectNotFoundError) {
+        res.status(404).json({ error: "Uploaded object not found — upload may not have completed" });
+        return;
+      }
+      req.log.error({ err: error }, "Error completing upload");
+      res.status(500).json({ error: "Failed to finalize upload" });
     }
   }
 );
@@ -72,6 +103,15 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
     const objectPath = `/objects/${wildcardPath}`;
     const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+
+    const canAccess = await canAccessObject({
+      objectFile,
+      requestedPermission: ObjectPermission.READ,
+    });
+    if (!canAccess) {
+      res.status(403).json({ error: "Access denied" });
+      return;
+    }
 
     const response = await objectStorageService.downloadObject(objectFile);
     res.status(response.status);

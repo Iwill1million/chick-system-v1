@@ -8,6 +8,8 @@
 
 export * from "./agentPerformance";
 export * from "./companySettings";
+export * from "./completeUpload200";
+export * from "./completeUploadBody";
 export * from "./createCustomerPaymentRequest";
 export * from "./createCustomerRequest";
 export * from "./createDeliveryLogRequest";
