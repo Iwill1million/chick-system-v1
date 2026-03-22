@@ -20,15 +20,16 @@ import {
   CheckCheck,
   Settings,
   BarChart2,
+  ExternalLink,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { cn, formatDate } from "@/lib/utils";
 import { Button, Badge } from "@/components/ui-components";
 import { motion, AnimatePresence } from "framer-motion";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const queryClient = useQueryClient();
@@ -48,6 +49,39 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   });
 
   const unreadCount = notifications.filter((n: NotificationItem) => !n.isRead).length;
+
+  function getNotifPath(n: NotificationItem): string | null {
+    if (n.orderId) {
+      return user?.role === "admin" ? `/orders/${n.orderId}` : `/agent/orders/${n.orderId}`;
+    }
+    return null;
+  }
+
+  function handleNotifClick(n: NotificationItem) {
+    if (!n.isRead) markRead({ data: { ids: [n.id] } });
+    const path = getNotifPath(n);
+    if (path) {
+      setIsNotifOpen(false);
+      navigate(path);
+    }
+  }
+
+  const notifMobileRef = useRef<HTMLDivElement>(null);
+  const notifDesktopRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isNotifOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node;
+      const insideMobile = notifMobileRef.current?.contains(target) ?? false;
+      const insideDesktop = notifDesktopRef.current?.contains(target) ?? false;
+      if (!insideMobile && !insideDesktop) {
+        setIsNotifOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isNotifOpen]);
 
   const adminLinks = [
     { href: "/dashboard", label: "لوحة التحكم", icon: LayoutDashboard },
@@ -80,7 +114,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </button>
           <span className="font-display font-bold text-xl text-primary">نظام الدواجن</span>
         </div>
-        <div className="flex items-center gap-2 relative">
+        <div ref={notifMobileRef} className="flex items-center gap-2 relative">
           <button
             onClick={() => setIsNotifOpen(!isNotifOpen)}
             className="relative p-2 text-foreground"
@@ -102,14 +136,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
                 className="absolute top-full left-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-card rounded-2xl shadow-xl border border-border overflow-hidden z-50"
               >
-                <div className="p-4 border-b border-border flex justify-between items-center bg-secondary/30">
-                  <h3 className="font-bold">الإشعارات</h3>
+                <div className="p-3 border-b border-border flex justify-between items-center bg-secondary/30">
+                  <h3 className="font-bold text-sm">الإشعارات</h3>
                   {unreadCount > 0 && (
                     <button
                       onClick={() => markRead({ data: { all: true } })}
-                      className="text-xs text-primary hover:underline flex items-center gap-1"
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold transition-colors"
                     >
-                      <CheckCheck className="w-3 h-3" /> تعيين كـ مقروء
+                      <CheckCheck className="w-3.5 h-3.5" /> تعيين الكل مقروء
                     </button>
                   )}
                 </div>
@@ -120,23 +154,31 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     </div>
                   ) : (
                     <div className="flex flex-col">
-                      {notifications.map((n: NotificationItem) => (
-                        <div
-                          key={n.id}
-                          className={cn(
-                            "p-4 border-b border-border/50 last:border-0 transition-colors hover:bg-secondary/30 cursor-pointer",
-                            !n.isRead && "bg-primary/5"
-                          )}
-                          onClick={() => {
-                            if (!n.isRead) markRead({ data: { ids: [n.id] } });
-                          }}
-                        >
-                          <p className="text-sm text-foreground">{n.message}</p>
-                          <p className="text-xs text-muted-foreground mt-1 text-left" dir="ltr">
-                            {formatDate(n.createdAt)}
-                          </p>
-                        </div>
-                      ))}
+                      {notifications.map((n: NotificationItem) => {
+                        const hasLink = !!getNotifPath(n);
+                        return (
+                          <div
+                            key={n.id}
+                            className={cn(
+                              "p-4 border-b border-border/50 last:border-0 transition-colors hover:bg-secondary/30",
+                              !n.isRead && "bg-primary/5",
+                              hasLink ? "cursor-pointer" : "cursor-default"
+                            )}
+                            onClick={() => handleNotifClick(n)}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-sm text-foreground leading-snug">{n.message}</p>
+                              {hasLink && <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5" />}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1 text-left" dir="ltr">
+                              {formatDate(n.createdAt)}
+                            </p>
+                            {!n.isRead && (
+                              <span className="inline-block mt-1.5 w-1.5 h-1.5 rounded-full bg-primary" />
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -195,7 +237,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             {links.slice().reverse().find((l) => location.startsWith(l.href))?.label || "نظام الدواجن"}
           </h1>
 
-          <div className="relative">
+          <div ref={notifDesktopRef} className="relative">
             <button
               onClick={() => setIsNotifOpen(!isNotifOpen)}
               className="p-2.5 rounded-full bg-secondary text-foreground hover:bg-primary/10 hover:text-primary transition-colors relative"
@@ -216,14 +258,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   exit={{ opacity: 0, y: 10, scale: 0.95 }}
                   className="absolute top-full left-0 mt-2 w-80 bg-card rounded-2xl shadow-xl border border-border overflow-hidden z-50"
                 >
-                  <div className="p-4 border-b border-border flex justify-between items-center bg-secondary/30">
-                    <h3 className="font-bold">الإشعارات</h3>
+                  <div className="p-3 border-b border-border flex justify-between items-center bg-secondary/30">
+                    <h3 className="font-bold text-sm">الإشعارات</h3>
                     {unreadCount > 0 && (
                       <button
                         onClick={() => markRead({ data: { all: true } })}
-                        className="text-xs text-primary hover:underline flex items-center gap-1"
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold transition-colors"
                       >
-                        <CheckCheck className="w-3 h-3" /> تعيين كـ مقروء
+                        <CheckCheck className="w-3.5 h-3.5" /> تعيين الكل مقروء
                       </button>
                     )}
                   </div>
@@ -234,26 +276,31 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       </div>
                     ) : (
                       <div className="flex flex-col">
-                        {notifications.map((n: NotificationItem) => (
-                          <div
-                            key={n.id}
-                            className={cn(
-                              "p-4 border-b border-border/50 last:border-0 transition-colors hover:bg-secondary/30 cursor-pointer",
-                              !n.isRead && "bg-primary/5"
-                            )}
-                            onClick={() => {
-                              if (!n.isRead) markRead({ data: { ids: [n.id] } });
-                            }}
-                          >
-                            <p className="text-sm text-foreground">{n.message}</p>
-                            <p
-                              className="text-xs text-muted-foreground mt-1 text-left"
-                              dir="ltr"
+                        {notifications.map((n: NotificationItem) => {
+                          const hasLink = !!getNotifPath(n);
+                          return (
+                            <div
+                              key={n.id}
+                              className={cn(
+                                "p-4 border-b border-border/50 last:border-0 transition-colors hover:bg-secondary/30",
+                                !n.isRead && "bg-primary/5",
+                                hasLink ? "cursor-pointer" : "cursor-default"
+                              )}
+                              onClick={() => handleNotifClick(n)}
                             >
-                              {formatDate(n.createdAt)}
-                            </p>
-                          </div>
-                        ))}
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="text-sm text-foreground leading-snug">{n.message}</p>
+                                {hasLink && <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5" />}
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1 text-left" dir="ltr">
+                                {formatDate(n.createdAt)}
+                              </p>
+                              {!n.isRead && (
+                                <span className="inline-block mt-1.5 w-1.5 h-1.5 rounded-full bg-primary" />
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
