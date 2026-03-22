@@ -1,6 +1,6 @@
 import { Router, type IRouter, Request, Response } from "express";
 import { db } from "@workspace/db";
-import { ordersTable, orderItemsTable, customersTable, usersTable, productsTable, notificationsTable } from "@workspace/db/schema";
+import { ordersTable, orderItemsTable, customersTable, usersTable, productsTable, notificationsTable, deliveryLogsTable } from "@workspace/db/schema";
 import { eq, and, SQL } from "drizzle-orm";
 import { authenticateToken, requireAdmin, AuthPayload } from "../middlewares/auth";
 import { CreateOrderBody, UpdateOrderBody, UpdateOrderStatusBody } from "@workspace/api-zod";
@@ -220,6 +220,8 @@ router.put("/orders/:id", authenticateToken, requireAdmin, async (req: Request, 
 
 router.delete("/orders/:id", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
   const id = parseInt(String(req.params["id"] ?? "0"));
+  await db.delete(notificationsTable).where(eq(notificationsTable.orderId, id));
+  await db.delete(deliveryLogsTable).where(eq(deliveryLogsTable.orderId, id));
   await db.delete(orderItemsTable).where(eq(orderItemsTable.orderId, id));
   await db.delete(ordersTable).where(eq(ordersTable.id, id));
   res.status(204).send();
