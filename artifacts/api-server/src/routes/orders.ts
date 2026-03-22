@@ -251,8 +251,25 @@ router.patch("/orders/:id/status", authenticateToken, async (req: Request, res: 
     return;
   }
 
+  const currentStatus = existing[0].status;
+  const newStatus = body.data.status;
+
+  const allowedTransitions: Record<string, string[]> = {
+    pending: ["preparing", "cancelled"],
+    preparing: ["delivering", "cancelled"],
+    delivering: ["delivered", "cancelled"],
+    delivered: [],
+    cancelled: [],
+  };
+
+  const allowed = allowedTransitions[currentStatus] ?? [];
+  if (!allowed.includes(newStatus)) {
+    res.status(400).json({ message: `لا يمكن تغيير الحالة من "${currentStatus}" إلى "${newStatus}"` });
+    return;
+  }
+
   await db.update(ordersTable).set({
-    status: body.data.status as typeof ordersTable.$inferInsert["status"],
+    status: newStatus as typeof ordersTable.$inferInsert["status"],
   }).where(eq(ordersTable.id, id));
 
   const admins = await db.select().from(usersTable).where(eq(usersTable.role, "admin"));
