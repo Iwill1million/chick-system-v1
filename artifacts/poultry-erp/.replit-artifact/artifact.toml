@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "نظام إدارة تجارة الدواجن"
+version = "1.0.0"
+id = "artifacts/poultry-erp"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18771
+
+[services.development]
+run = "pnpm --filter @workspace/poultry-erp run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/poultry-erp", "run", "build" ]
+publicDir = "artifacts/poultry-erp/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18771"
+BASE_PATH = "/"

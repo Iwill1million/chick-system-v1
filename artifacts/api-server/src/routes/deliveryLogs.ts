@@ -1,0 +1,65 @@
+import { Router, type IRouter, Request, Response } from "express";
+import { db } from "@workspace/db";
+import { deliveryLogsTable, notificationsTable, usersTable, ordersTable } from "@workspace/db/schema";
+import { eq } from "drizzle-orm";
+import { authenticateToken, AuthPayload } from "../middlewares/auth";
+import { CreateDeliveryLogBody } from "@workspace/api-zod";
+
+const router: IRouter = Router();
+
+type AuthRequest = Request & { user: AuthPayload };
+
+function formatLog(log: typeof deliveryLogsTable.$inferSelect) {
+  return {
+    id: log.id,
+    orderId: log.orderId,
+    agentId: log.agentId,
+    collectedAmount: log.collectedAmount,
+    deliveredQuantity: log.deliveredQuantity,
+    fuelExpense: log.fuelExpense,
+    otherExpenses: log.otherExpenses,
+    notes: log.notes,
+    loggedAt: log.loggedAt.toISOString(),
+  };
+}
+
+router.post("/delivery-logs", authenticateToken, async (req: Request, res: Response) => {
+  const authReq = req as AuthRequest;
+  const body = CreateDeliveryLogBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ message: "Invalid request" });
+    return;
+  }
+
+  const inserted = await db.insert(deliveryLogsTable).values({
+    orderId: body.data.orderId,
+    agentId: authReq.user.userId,
+    collectedAmount: body.data.collectedAmount,
+    deliveredQuantity: body.data.deliveredQuantity,
+    fuelExpense: body.data.fuelExpense,
+    otherExpenses: body.data.otherExpenses,
+    notes: body.data.notes ?? null,
+  }).returning();
+
+  const admins = await db.select().from(usersTable).where(eq(usersTable.role, "admin"));
+  if (admins.length > 0) {
+    await db.insert(notificationsTable).values(
+      admins.map(admin => ({
+        userId: admin.id,
+        message: `المندوب سجّل تفاصيل توصيل الطلب #${body.data.orderId}`,
+        orderId: body.data.orderId,
+        isRead: false,
+      }))
+    );
+  }
+
+  res.status(201).json(formatLog(inserted[0]));
+});
+
+router.get("/delivery-logs/:orderId", authenticateToken, async (req: Request, res: Response) => {
+  const orderId = parseInt(req.params["orderId"] ?? "0");
+  const logs = await db.select().from(deliveryLogsTable).where(eq(deliveryLogsTable.orderId, orderId));
+  res.json(logs.map(formatLog));
+});
+
+export default router;

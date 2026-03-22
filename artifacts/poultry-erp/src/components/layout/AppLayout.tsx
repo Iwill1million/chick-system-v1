@@ -1,0 +1,210 @@
+import { Link, useLocation } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
+import { useListNotifications, useMarkNotificationsRead } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { 
+  LayoutDashboard, Users, Package, ShoppingCart, Truck, 
+  LogOut, Bell, Menu, X, ChevronDown, CheckCheck
+} from "lucide-react";
+import { useState, useEffect } from "react";
+import { cn, formatDate } from "@/lib/utils";
+import { Button, Badge } from "@/components/ui-components";
+import { motion, AnimatePresence } from "framer-motion";
+
+export function AppLayout({ children }: { children: React.ReactNode }) {
+  const { user, logout } = useAuth();
+  const [location] = useLocation();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const queryClient = useQueryClient();
+
+  const { data: notifications = [] } = useListNotifications({
+    query: { refetchInterval: 30000 } // Poll every 30s
+  });
+  
+  const { mutate: markRead } = useMarkNotificationsRead({
+    mutation: {
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notifications"] })
+    }
+  });
+
+  const unreadCount = notifications.filter(n => !n.isRead).length;
+
+  const adminLinks = [
+    { href: "/dashboard", label: "لوحة التحكم", icon: LayoutDashboard },
+    { href: "/orders", label: "الطلبات", icon: ShoppingCart },
+    { href: "/customers", label: "العملاء", icon: Users },
+    { href: "/products", label: "المنتجات", icon: Package },
+    { href: "/agents", label: "المندوبون", icon: Truck },
+  ];
+
+  const agentLinks = [
+    { href: "/agent/orders", label: "طلباتي", icon: Truck },
+  ];
+
+  const links = user?.role === "admin" ? adminLinks : agentLinks;
+
+  // Close mobile menu on navigate
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location]);
+
+  return (
+    <div className="min-h-screen bg-background flex flex-col md:flex-row">
+      {/* Mobile Header */}
+      <header className="md:hidden flex items-center justify-between p-4 bg-card border-b border-border z-30 relative">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 -mr-2 text-foreground">
+            {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+          <span className="font-display font-bold text-xl text-primary">نظام الدواجن</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setIsNotifOpen(!isNotifOpen)} className="relative p-2 text-foreground">
+            <Bell className="w-6 h-6" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 w-3 h-3 bg-destructive rounded-full border-2 border-card"></span>
+            )}
+          </button>
+        </div>
+      </header>
+
+      {/* Sidebar (Desktop + Mobile overlay) */}
+      <AnimatePresence>
+        {(isMobileMenuOpen || typeof window !== 'undefined' && window.innerWidth >= 768) && (
+          <motion.aside
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", bounce: 0, duration: 0.3 }}
+            className={cn(
+              "fixed inset-y-0 right-0 z-40 w-72 bg-card border-l border-border flex flex-col",
+              "md:relative md:translate-x-0"
+            )}
+          >
+            <div className="p-6 hidden md:block">
+              <span className="font-display font-extrabold text-2xl text-transparent bg-clip-text bg-gradient-to-l from-primary to-emerald-500">نظام الدواجن</span>
+            </div>
+
+            <div className="p-6 md:pt-0 pb-4 border-b border-border/50">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
+                  {user?.name.charAt(0)}
+                </div>
+                <div>
+                  <p className="font-bold text-foreground">{user?.name}</p>
+                  <p className="text-sm text-muted-foreground">{user?.role === 'admin' ? 'مدير النظام' : 'مندوب توصيل'}</p>
+                </div>
+              </div>
+            </div>
+
+            <nav className="flex-1 overflow-y-auto p-4 flex flex-col gap-2">
+              {links.map((link) => {
+                const isActive = location.startsWith(link.href);
+                return (
+                  <Link key={link.href} href={link.href} className={cn(
+                    "flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all duration-200",
+                    isActive 
+                      ? "bg-primary text-primary-foreground shadow-md shadow-primary/20" 
+                      : "text-foreground hover:bg-secondary hover:text-primary"
+                  )}>
+                    <link.icon className={cn("w-5 h-5", isActive ? "text-primary-foreground/90" : "text-muted-foreground")} />
+                    {link.label}
+                  </Link>
+                );
+              })}
+            </nav>
+
+            <div className="p-4 border-t border-border/50">
+              <button 
+                onClick={logout}
+                className="flex items-center gap-3 px-4 py-3 w-full rounded-xl font-semibold text-destructive hover:bg-destructive/10 transition-colors"
+              >
+                <LogOut className="w-5 h-5" />
+                تسجيل الخروج
+              </button>
+            </div>
+          </motion.aside>
+        )}
+      </AnimatePresence>
+
+      {/* Main Content Area */}
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative z-0">
+        {/* Desktop Header */}
+        <header className="hidden md:flex items-center justify-between px-8 py-5 bg-card/50 backdrop-blur-md border-b border-border/50 sticky top-0 z-20">
+          <h1 className="text-2xl font-display font-bold text-foreground">
+            {links.find(l => location.startsWith(l.href))?.label || "نظام الدواجن"}
+          </h1>
+          
+          <div className="relative">
+            <button 
+              onClick={() => setIsNotifOpen(!isNotifOpen)}
+              className="p-2.5 rounded-full bg-secondary text-foreground hover:bg-primary/10 hover:text-primary transition-colors relative"
+            >
+              <Bell className="w-5 h-5" />
+              {unreadCount > 0 && (
+                <span className="absolute top-0 right-0 w-5 h-5 flex items-center justify-center bg-destructive text-white text-[10px] font-bold rounded-full border-2 border-card">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* Notifications Dropdown */}
+            <AnimatePresence>
+              {isNotifOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  className="absolute top-full left-0 mt-2 w-80 bg-card rounded-2xl shadow-xl border border-border overflow-hidden z-50"
+                >
+                  <div className="p-4 border-b border-border flex justify-between items-center bg-secondary/30">
+                    <h3 className="font-bold">الإشعارات</h3>
+                    {unreadCount > 0 && (
+                      <button 
+                        onClick={() => markRead({ all: true })}
+                        className="text-xs text-primary hover:underline flex items-center gap-1"
+                      >
+                        <CheckCheck className="w-3 h-3" /> تعيين كـ مقروء
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-[60vh] overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="p-8 text-center text-muted-foreground text-sm">
+                        لا توجد إشعارات حالياً
+                      </div>
+                    ) : (
+                      <div className="flex flex-col">
+                        {notifications.map(n => (
+                          <div 
+                            key={n.id} 
+                            className={cn(
+                              "p-4 border-b border-border/50 last:border-0 transition-colors hover:bg-secondary/30",
+                              !n.isRead && "bg-primary/5"
+                            )}
+                            onClick={() => {
+                              if (!n.isRead) markRead({ ids: [n.id] });
+                            }}
+                          >
+                            <p className="text-sm text-foreground">{n.message}</p>
+                            <p className="text-xs text-muted-foreground mt-1 text-left" dir="ltr">{formatDate(n.createdAt)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </header>
+
+        {/* Page Content */}
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-background">
+          {children}
+        </div>
+      </main>
+    </div>
+  );
+}

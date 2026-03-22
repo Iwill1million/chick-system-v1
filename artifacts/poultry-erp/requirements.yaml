@@ -1,0 +1,15 @@
+packages:
+  "framer-motion": "For smooth page transitions and beautiful staggered list animations"
+  "recharts": "For the admin finance dashboard charts (revenue, orders, etc.)"
+  "date-fns": "For formatting dates nicely in Arabic"
+  "clsx": "For merging tailwind classes conditionally"
+  "tailwind-merge": "For resolving tailwind class conflicts in reusable components"
+
+images:
+  - path: "artifacts/poultry-erp/public/images/login-bg.png"
+    description: "An elegant, abstract geometric background in shades of deep teal and soft green with subtle glowing light leaks, highly polished, premium corporate feel, no text."
+    aspect_ratio: "16:9"
+
+notes:
+  - RTL Layout is enforced globally via CSS
+  - Uses @workspace/api-client-react for TanStack Query hooks
