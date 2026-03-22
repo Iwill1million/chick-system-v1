@@ -73,7 +73,7 @@ router.post("/delivery-logs", authenticateToken, async (req: Request, res: Respo
 
 router.get("/delivery-logs/:orderId", authenticateToken, async (req: Request, res: Response) => {
   const authReq = req as AuthRequest;
-  const orderId = parseInt(req.params["orderId"] ?? "0");
+  const orderId = parseInt(String(req.params["orderId"] ?? "0"));
 
   if (authReq.user.role !== "admin") {
     const orders = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));

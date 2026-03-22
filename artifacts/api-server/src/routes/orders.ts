@@ -142,7 +142,7 @@ router.post("/orders", authenticateToken, requireAdmin, async (req: Request, res
 });
 
 router.get("/orders/:id", authenticateToken, async (req: Request, res: Response) => {
-  const id = parseInt(req.params["id"] ?? "0");
+  const id = parseInt(String(req.params["id"] ?? "0"));
   const authReq = req as AuthRequest;
 
   const result = await getOrderWithDetails(id);
@@ -160,7 +160,7 @@ router.get("/orders/:id", authenticateToken, async (req: Request, res: Response)
 });
 
 router.put("/orders/:id", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
-  const id = parseInt(req.params["id"] ?? "0");
+  const id = parseInt(String(req.params["id"] ?? "0"));
   const body = UpdateOrderBody.safeParse(req.body);
   if (!body.success) {
     res.status(400).json({ message: "Invalid request" });
@@ -214,14 +214,14 @@ router.put("/orders/:id", authenticateToken, requireAdmin, async (req: Request, 
 });
 
 router.delete("/orders/:id", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
-  const id = parseInt(req.params["id"] ?? "0");
+  const id = parseInt(String(req.params["id"] ?? "0"));
   await db.delete(orderItemsTable).where(eq(orderItemsTable.orderId, id));
   await db.delete(ordersTable).where(eq(ordersTable.id, id));
   res.status(204).send();
 });
 
 router.patch("/orders/:id/status", authenticateToken, async (req: Request, res: Response) => {
-  const id = parseInt(req.params["id"] ?? "0");
+  const id = parseInt(String(req.params["id"] ?? "0"));
   const authReq = req as AuthRequest;
   const body = UpdateOrderStatusBody.safeParse(req.body);
   if (!body.success) {

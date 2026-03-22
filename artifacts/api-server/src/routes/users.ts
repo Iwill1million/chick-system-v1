@@ -48,7 +48,7 @@ router.post("/users", authenticateToken, requireAdmin, async (req: Request, res:
 });
 
 router.get("/users/:id", authenticateToken, async (req: Request, res: Response) => {
-  const id = parseInt(req.params["id"] ?? "0");
+  const id = parseInt(String(req.params["id"] ?? "0"));
   const authReq = req as AuthRequest;
 
   if (authReq.user.role !== "admin" && authReq.user.userId !== id) {
@@ -66,7 +66,7 @@ router.get("/users/:id", authenticateToken, async (req: Request, res: Response) 
 });
 
 router.put("/users/:id", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
-  const id = parseInt(req.params["id"] ?? "0");
+  const id = parseInt(String(req.params["id"] ?? "0"));
   const body = UpdateUserBody.safeParse(req.body);
   if (!body.success) {
     res.status(400).json({ message: "Invalid request" });
@@ -92,7 +92,7 @@ router.put("/users/:id", authenticateToken, requireAdmin, async (req: Request, r
 });
 
 router.delete("/users/:id", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
-  const id = parseInt(req.params["id"] ?? "0");
+  const id = parseInt(String(req.params["id"] ?? "0"));
   await db.delete(usersTable).where(eq(usersTable.id, id));
   res.status(204).send();
 });

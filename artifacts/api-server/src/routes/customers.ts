@@ -43,7 +43,7 @@ router.post("/customers", authenticateToken, requireAdmin, async (req: Request, 
 });
 
 router.get("/customers/:id", authenticateToken, async (req: Request, res: Response) => {
-  const id = parseInt(req.params["id"] ?? "0");
+  const id = parseInt(String(req.params["id"] ?? "0"));
   const customers = await db.select().from(customersTable).where(eq(customersTable.id, id));
   if (!customers[0]) {
     res.status(404).json({ message: "Customer not found" });
@@ -53,7 +53,7 @@ router.get("/customers/:id", authenticateToken, async (req: Request, res: Respon
 });
 
 router.put("/customers/:id", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
-  const id = parseInt(req.params["id"] ?? "0");
+  const id = parseInt(String(req.params["id"] ?? "0"));
   const body = CreateCustomerBody.safeParse(req.body);
   if (!body.success) {
     res.status(400).json({ message: "Invalid request" });
@@ -77,7 +77,7 @@ router.put("/customers/:id", authenticateToken, requireAdmin, async (req: Reques
 });
 
 router.delete("/customers/:id", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
-  const id = parseInt(req.params["id"] ?? "0");
+  const id = parseInt(String(req.params["id"] ?? "0"));
   await db.delete(customersTable).where(eq(customersTable.id, id));
   res.status(204).send();
 });

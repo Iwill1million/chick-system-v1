@@ -11,11 +11,14 @@ router.get("/finance/summary", authenticateToken, requireAdmin, async (req: Requ
 
   let allOrders = await db.select().from(ordersTable);
 
-  if (from) {
-    allOrders = allOrders.filter(o => o.orderDate >= from as string);
+  const fromStr = typeof from === "string" ? from : undefined;
+  const toStr = typeof to === "string" ? to : undefined;
+
+  if (fromStr) {
+    allOrders = allOrders.filter(o => o.orderDate >= fromStr);
   }
-  if (to) {
-    allOrders = allOrders.filter(o => o.orderDate <= to as string);
+  if (toStr) {
+    allOrders = allOrders.filter(o => o.orderDate <= toStr);
   }
 
   const orderIds = allOrders.map(o => o.id);
