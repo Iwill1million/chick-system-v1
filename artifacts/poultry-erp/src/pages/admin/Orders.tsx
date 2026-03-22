@@ -221,7 +221,8 @@ export default function Orders() {
                       <div className="flex gap-2">
                         <Link
                           href={`/orders/${o.id}`}
-                          className="p-2 hover:bg-secondary rounded-lg transition-colors text-primary"
+                          title="عرض الطلب"
+                          className="inline-flex items-center justify-center h-11 w-11 rounded-xl bg-transparent hover:bg-secondary/50 text-primary transition-colors"
                         >
                           <Eye className="w-4 h-4" />
                         </Link>
@@ -240,6 +241,7 @@ export default function Orders() {
                             if (confirm("هل أنت متأكد من حذف الطلب؟"))
                               deleteMut.mutate({ id: o.id });
                           }}
+                          title="حذف الطلب"
                         >
                           <Trash2 className="w-4 h-4 text-destructive" />
                         </Button>
