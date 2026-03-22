@@ -76,16 +76,69 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </button>
           <span className="font-display font-bold text-xl text-primary">نظام الدواجن</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 relative">
           <button
             onClick={() => setIsNotifOpen(!isNotifOpen)}
             className="relative p-2 text-foreground"
           >
             <Bell className="w-6 h-6" />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 w-3 h-3 bg-destructive rounded-full border-2 border-card" />
+              <span className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center bg-destructive text-white text-[10px] font-bold rounded-full border-2 border-card">
+                {unreadCount}
+              </span>
             )}
           </button>
+
+          {/* Mobile notification dropdown */}
+          <AnimatePresence>
+            {isNotifOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                className="absolute top-full left-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-card rounded-2xl shadow-xl border border-border overflow-hidden z-50"
+              >
+                <div className="p-4 border-b border-border flex justify-between items-center bg-secondary/30">
+                  <h3 className="font-bold">الإشعارات</h3>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={() => markRead({ data: { all: true } })}
+                      className="text-xs text-primary hover:underline flex items-center gap-1"
+                    >
+                      <CheckCheck className="w-3 h-3" /> تعيين كـ مقروء
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-[60vh] overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <div className="p-8 text-center text-muted-foreground text-sm">
+                      لا توجد إشعارات حالياً
+                    </div>
+                  ) : (
+                    <div className="flex flex-col">
+                      {notifications.map((n: NotificationItem) => (
+                        <div
+                          key={n.id}
+                          className={cn(
+                            "p-4 border-b border-border/50 last:border-0 transition-colors hover:bg-secondary/30 cursor-pointer",
+                            !n.isRead && "bg-primary/5"
+                          )}
+                          onClick={() => {
+                            if (!n.isRead) markRead({ data: { ids: [n.id] } });
+                          }}
+                        >
+                          <p className="text-sm text-foreground">{n.message}</p>
+                          <p className="text-xs text-muted-foreground mt-1 text-left" dir="ltr">
+                            {formatDate(n.createdAt)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </header>
 

@@ -35,6 +35,7 @@ function AgentRoute({ component: Component }: { component: React.ComponentType }
   const { user, isLoading } = useAuth();
   if (isLoading) return <LoadingSpinner />;
   if (!user) return <Redirect to="/" />;
+  if (user.role !== "agent") return <Redirect to="/dashboard" />;
   return <AppLayout><Component /></AppLayout>;
 }
 
