@@ -4,10 +4,16 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button, Input, Select, Modal, Table, Th, Td, Card, Badge } from "@/components/ui-components";
 import { formatCurrency } from "@/lib/utils";
 import { Plus, Edit2, Trash2 } from "lucide-react";
-import type { z } from "zod";
-import { ListProductsResponseItem } from "@workspace/api-zod";
 
-type Product = z.infer<typeof ListProductsResponseItem>;
+interface Product {
+  id: number;
+  name: string;
+  type: "chicks" | "chickens" | "other";
+  unitPrice: string;
+  stockQuantity: number;
+  description?: string | null;
+  createdAt: string;
+}
 
 interface ProductFormData {
   name: string;
