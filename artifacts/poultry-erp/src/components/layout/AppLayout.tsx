@@ -21,14 +21,18 @@ import {
   Settings,
   BarChart2,
   ExternalLink,
+  Moon,
+  Sun,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { cn, formatDate } from "@/lib/utils";
 import { Button, Badge } from "@/components/ui-components";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTheme } from "@/hooks/use-theme";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [location, navigate] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -114,6 +118,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </button>
           <span className="font-display font-bold text-xl text-primary">نظام الدواجن</span>
         </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={toggleTheme}
+            className="p-2 text-foreground hover:text-primary transition-colors"
+            title={theme === "dark" ? "التبديل للوضع الفاتح" : "التبديل للوضع الداكن"}
+          >
+            {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          </button>
         <div ref={notifMobileRef} className="flex items-center gap-2 relative">
           <button
             onClick={() => setIsNotifOpen(!isNotifOpen)}
@@ -186,6 +198,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             )}
           </AnimatePresence>
         </div>
+        </div>
       </header>
 
       {/* Sidebar (Desktop + Mobile overlay) */}
@@ -236,6 +249,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <h1 className="text-2xl font-display font-bold text-foreground">
             {links.slice().reverse().find((l) => location.startsWith(l.href))?.label || "نظام الدواجن"}
           </h1>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleTheme}
+              className="p-2.5 rounded-full bg-secondary text-foreground hover:bg-primary/10 hover:text-primary transition-colors"
+              title={theme === "dark" ? "التبديل للوضع الفاتح" : "التبديل للوضع الداكن"}
+            >
+              {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
 
           <div ref={notifDesktopRef} className="relative">
             <button
@@ -307,6 +329,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </motion.div>
               )}
             </AnimatePresence>
+          </div>
           </div>
         </header>
 
