@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { useGetFinanceSummary, useListProducts } from "@workspace/api-client-react";
+import { useGetFinanceSummary, customFetch } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
+import type { Product } from "@workspace/api-client-react";
 import { Card, Select, Input } from "@/components/ui-components";
 import { formatCurrency, statusLabels, statusColors } from "@/lib/utils";
 import { ShoppingCart, CheckCircle, TrendingUp, Wallet, ArrowUpRight, AlertTriangle } from "lucide-react";
@@ -96,8 +98,10 @@ export default function Dashboard() {
   const { from, to } = computeRange(dateRange, customFrom, customTo);
 
   const { data: summary, isLoading } = useGetFinanceSummary({ from, to });
-  const { data: products = [] } = useListProducts();
-  const lowStockProducts = products.filter(p => p.stockQuantity < 10);
+  const { data: lowStockProducts = [] } = useQuery({
+    queryKey: ["/api/products", { lowStock: true }],
+    queryFn: () => customFetch<Product[]>("/api/products?lowStock=true"),
+  });
 
   const containerVariants = {
     hidden: { opacity: 0 },

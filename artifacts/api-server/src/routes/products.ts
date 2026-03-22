@@ -1,7 +1,7 @@
 import { Router, type IRouter, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { productsTable } from "@workspace/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, lte } from "drizzle-orm";
 import { authenticateToken, requireAdmin } from "../middlewares/auth";
 import { CreateProductBody } from "@workspace/api-zod";
 
@@ -19,8 +19,13 @@ function formatProduct(p: typeof productsTable.$inferSelect) {
   };
 }
 
-router.get("/products", authenticateToken, async (_req: Request, res: Response) => {
-  const products = await db.select().from(productsTable);
+const LOW_STOCK_THRESHOLD = 10;
+
+router.get("/products", authenticateToken, async (req: Request, res: Response) => {
+  const { lowStock } = req.query;
+  const products = lowStock === "true"
+    ? await db.select().from(productsTable).where(lte(productsTable.stockQuantity, LOW_STOCK_THRESHOLD - 1))
+    : await db.select().from(productsTable);
   res.json(products.map(formatProduct));
 });
 
