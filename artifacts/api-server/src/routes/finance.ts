@@ -1,7 +1,7 @@
 import { Router, type IRouter, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { ordersTable, deliveryLogsTable, customersTable, productsTable, usersTable, orderItemsTable } from "@workspace/db/schema";
-import { eq, and, gte, lte, sql } from "drizzle-orm";
+import { eq, gte, lte, and } from "drizzle-orm";
 import { authenticateToken, requireAdmin } from "../middlewares/auth";
 
 const router: IRouter = Router();
@@ -9,17 +9,16 @@ const router: IRouter = Router();
 router.get("/finance/summary", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
   const { from, to } = req.query;
 
-  let allOrders = await db.select().from(ordersTable);
-
   const fromStr = typeof from === "string" ? from : undefined;
   const toStr = typeof to === "string" ? to : undefined;
 
-  if (fromStr) {
-    allOrders = allOrders.filter(o => o.orderDate >= fromStr);
-  }
-  if (toStr) {
-    allOrders = allOrders.filter(o => o.orderDate <= toStr);
-  }
+  const conditions = [];
+  if (fromStr) conditions.push(gte(ordersTable.orderDate, fromStr));
+  if (toStr) conditions.push(lte(ordersTable.orderDate, toStr));
+
+  const allOrders = conditions.length > 0
+    ? await db.select().from(ordersTable).where(and(...conditions))
+    : await db.select().from(ordersTable);
 
   const orderIds = allOrders.map(o => o.id);
 

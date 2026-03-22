@@ -4,6 +4,18 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button, Input, Select, Modal, Table, Th, Td, Card, Badge } from "@/components/ui-components";
 import { formatCurrency } from "@/lib/utils";
 import { Plus, Edit2, Trash2 } from "lucide-react";
+import type { z } from "zod";
+import { ListProductsResponseItem } from "@workspace/api-zod";
+
+type Product = z.infer<typeof ListProductsResponseItem>;
+
+interface ProductFormData {
+  name: string;
+  type: "chicks" | "chickens" | "other";
+  unitPrice: string;
+  stockQuantity: number | string;
+  description: string;
+}
 
 export default function Products() {
   const queryClient = useQueryClient();
@@ -11,7 +23,7 @@ export default function Products() {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [formData, setFormData] = useState<any>({ name: "", type: "chicks", unitPrice: "0", stockQuantity: 0, description: "" });
+  const [formData, setFormData] = useState<ProductFormData>({ name: "", type: "chicks", unitPrice: "0", stockQuantity: 0, description: "" });
 
   const createMut = useCreateProduct({
     mutation: { onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/products"] }); setIsModalOpen(false); } }
@@ -31,9 +43,9 @@ export default function Products() {
     setIsModalOpen(true);
   };
 
-  const openEdit = (p: any) => {
+  const openEdit = (p: Product) => {
     setEditingId(p.id);
-    setFormData({ name: p.name, type: p.type, unitPrice: p.unitPrice, stockQuantity: p.stockQuantity, description: p.description || "" });
+    setFormData({ name: p.name, type: p.type, unitPrice: p.unitPrice, stockQuantity: p.stockQuantity, description: p.description ?? "" });
     setIsModalOpen(true);
   };
 
@@ -100,7 +112,7 @@ export default function Products() {
           <Select 
             label="النوع *" required 
             options={[{label:"كتاكيت", value:"chicks"}, {label:"فراخ", value:"chickens"}, {label:"أخرى", value:"other"}]}
-            value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})} 
+            value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as "chicks" | "chickens" | "other"})} 
           />
           <div className="grid grid-cols-2 gap-4">
             <Input label="سعر الوحدة *" required type="number" step="0.01" value={formData.unitPrice} onChange={e => setFormData({...formData, unitPrice: e.target.value})} />
