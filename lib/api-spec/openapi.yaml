@@ -275,6 +275,99 @@ paths:
         "204":
           description: Deleted
 
+  /customers/{id}/payments:
+    get:
+      operationId: listCustomerPayments
+      tags: [customers]
+      summary: List payments for a customer (admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of payments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CustomerPayment"
+    post:
+      operationId: createCustomerPayment
+      tags: [customers]
+      summary: Record a payment for a customer (admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCustomerPaymentRequest"
+      responses:
+        "201":
+          description: Payment recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerPayment"
+
+  /customers/{id}/payments/{paymentId}:
+    delete:
+      operationId: deleteCustomerPayment
+      tags: [customers]
+      summary: Delete a customer payment (admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: paymentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Payment not found
+
+  /customers/{id}/statement:
+    get:
+      operationId: getCustomerStatement
+      tags: [customers]
+      summary: Get full account statement for a customer (admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Customer statement
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerStatement"
+
   /products:
     get:
       operationId: listProducts
@@ -1193,3 +1286,99 @@ components:
         - productName
         - unitsSold
         - totalRevenue
+
+    CustomerPayment:
+      type: object
+      properties:
+        id:
+          type: integer
+        customerId:
+          type: integer
+        amount:
+          type: string
+        paymentDate:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          nullable: true
+        createdBy:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+          required:
+            - id
+            - name
+      required:
+        - id
+        - customerId
+        - amount
+        - paymentDate
+
+    CreateCustomerPaymentRequest:
+      type: object
+      properties:
+        amount:
+          type: number
+        paymentDate:
+          type: string
+        notes:
+          type: string
+          nullable: true
+      required:
+        - amount
+        - paymentDate
+
+    CustomerStatementSummary:
+      type: object
+      properties:
+        openingBalance:
+          type: string
+        totalOrders:
+          type: string
+        totalPaid:
+          type: string
+        currentBalance:
+          type: string
+      required:
+        - openingBalance
+        - totalOrders
+        - totalPaid
+        - currentBalance
+
+    CustomerStatement:
+      type: object
+      properties:
+        customer:
+          $ref: "#/components/schemas/Customer"
+        summary:
+          $ref: "#/components/schemas/CustomerStatementSummary"
+        transactions:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                enum: [order, payment]
+              date:
+                type: string
+              id:
+                type: integer
+              runningBalance:
+                type: number
+            required:
+              - type
+              - date
+              - id
+              - runningBalance
+      required:
+        - customer
+        - summary
+        - transactions
