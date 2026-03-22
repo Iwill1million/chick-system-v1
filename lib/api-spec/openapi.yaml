@@ -197,7 +197,7 @@ paths:
     post:
       operationId: createCustomer
       tags: [customers]
-      summary: Create a new customer
+      summary: Create a new customer (admin only)
       security:
         - BearerAuth: []
       requestBody:
@@ -237,7 +237,7 @@ paths:
     put:
       operationId: updateCustomer
       tags: [customers]
-      summary: Update a customer
+      summary: Update a customer (admin only)
       security:
         - BearerAuth: []
       parameters:
@@ -262,7 +262,7 @@ paths:
     delete:
       operationId: deleteCustomer
       tags: [customers]
-      summary: Delete a customer
+      summary: Delete a customer (admin only)
       security:
         - BearerAuth: []
       parameters:
@@ -294,7 +294,7 @@ paths:
     post:
       operationId: createProduct
       tags: [products]
-      summary: Create a new product
+      summary: Create a new product (admin only)
       security:
         - BearerAuth: []
       requestBody:
@@ -334,7 +334,7 @@ paths:
     put:
       operationId: updateProduct
       tags: [products]
-      summary: Update a product
+      summary: Update a product (admin only)
       security:
         - BearerAuth: []
       parameters:
@@ -359,7 +359,7 @@ paths:
     delete:
       operationId: deleteProduct
       tags: [products]
-      summary: Delete a product
+      summary: Delete a product (admin only)
       security:
         - BearerAuth: []
       parameters:
