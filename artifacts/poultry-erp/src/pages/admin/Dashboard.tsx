@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useGetFinanceSummary } from "@workspace/api-client-react";
+import { useGetFinanceSummary, useListProducts } from "@workspace/api-client-react";
 import { Card, Select, Input } from "@/components/ui-components";
 import { formatCurrency, statusLabels, statusColors } from "@/lib/utils";
-import { ShoppingCart, CheckCircle, TrendingUp, Wallet, ArrowUpRight } from "lucide-react";
+import { ShoppingCart, CheckCircle, TrendingUp, Wallet, ArrowUpRight, AlertTriangle } from "lucide-react";
 import {
   PieChart,
   Pie,
@@ -96,6 +96,8 @@ export default function Dashboard() {
   const { from, to } = computeRange(dateRange, customFrom, customTo);
 
   const { data: summary, isLoading } = useGetFinanceSummary({ from, to });
+  const { data: products = [] } = useListProducts();
+  const lowStockProducts = products.filter(p => p.stockQuantity < 10);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -264,6 +266,32 @@ export default function Dashboard() {
           </Card>
         </motion.div>
       </div>
+
+      {/* Low Stock Warning */}
+      {lowStockProducts.length > 0 && (
+        <motion.div variants={itemVariants}>
+          <Card className="p-6 border-destructive/30 bg-red-50/50">
+            <h3 className="text-lg font-bold mb-4 text-destructive flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5" />
+              منتجات تحتاج إعادة تعبئة ({lowStockProducts.length})
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {lowStockProducts.map(p => (
+                <div key={p.id} className="flex justify-between items-center p-3 bg-white rounded-xl border border-destructive/20">
+                  <div>
+                    <p className="font-bold text-sm text-foreground">{p.name}</p>
+                    <p className="text-xs text-muted-foreground">{p.type === "chicks" ? "كتاكيت" : p.type === "chickens" ? "فراخ" : "أخرى"}</p>
+                  </div>
+                  <div className="text-left">
+                    <span className="text-2xl font-extrabold text-destructive">{p.stockQuantity}</span>
+                    <p className="text-xs text-muted-foreground">متبقية</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </motion.div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
         <motion.div variants={itemVariants}>

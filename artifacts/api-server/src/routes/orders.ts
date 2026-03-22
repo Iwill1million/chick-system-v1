@@ -1,7 +1,7 @@
 import { Router, type IRouter, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { ordersTable, orderItemsTable, customersTable, usersTable, productsTable, notificationsTable, deliveryLogsTable } from "@workspace/db/schema";
-import { eq, and, SQL } from "drizzle-orm";
+import { eq, and, SQL, sql } from "drizzle-orm";
 import { authenticateToken, requireAdmin, AuthPayload } from "../middlewares/auth";
 import { CreateOrderBody, UpdateOrderBody, UpdateOrderStatusBody } from "@workspace/api-zod";
 
@@ -111,6 +111,23 @@ router.post("/orders", authenticateToken, requireAdmin, async (req: Request, res
 
   const { customerId, agentId, orderDate, deliveryDate, notes, items } = body.data;
 
+  // Validate stock availability before creating the order
+  if (items && items.length > 0) {
+    for (const item of items) {
+      const [product] = await db.select().from(productsTable).where(eq(productsTable.id, item.productId));
+      if (!product) {
+        res.status(400).json({ message: `المنتج رقم ${item.productId} غير موجود` });
+        return;
+      }
+      if (product.stockQuantity < item.quantity) {
+        res.status(422).json({
+          message: `الكمية المطلوبة من "${product.name}" (${item.quantity}) تتجاوز المخزون المتاح (${product.stockQuantity} متبقية)`,
+        });
+        return;
+      }
+    }
+  }
+
   const order = await db.transaction(async (tx) => {
     const inserted = await tx.insert(ordersTable).values({
       customerId,
@@ -132,6 +149,13 @@ router.post("/orders", authenticateToken, requireAdmin, async (req: Request, res
           unitPrice: item.unitPrice,
         }))
       );
+
+      // Deduct stock quantity for each item
+      for (const item of items) {
+        await tx.update(productsTable)
+          .set({ stockQuantity: sql`${productsTable.stockQuantity} - ${item.quantity}` })
+          .where(eq(productsTable.id, item.productId));
+      }
     }
 
     if (agentId) {

@@ -17,7 +17,7 @@ import type {
 import { useQueryClient } from "@tanstack/react-query";
 import { Button, Input, Select, Modal, Table, Th, Td, Card, Badge } from "@/components/ui-components";
 import { formatCurrency, formatDate, statusColors, statusLabels } from "@/lib/utils";
-import { Plus, Edit2, Trash2, Eye, PlusCircle, MinusCircle } from "lucide-react";
+import { Plus, Edit2, Trash2, Eye, PlusCircle, MinusCircle, AlertTriangle } from "lucide-react";
 import { Link } from "wouter";
 
 interface ItemRow {
@@ -171,6 +171,10 @@ export default function Orders() {
   };
 
   const isPending = createMut.isPending || updateMut.isPending;
+  const mutError = createMut.error || updateMut.error;
+  const apiErrorMessage = mutError
+    ? ((mutError as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "حدث خطأ، يرجى المحاولة مجدداً")
+    : null;
 
   return (
     <div className="space-y-6">
@@ -326,16 +330,25 @@ export default function Orders() {
 
           <div className="p-4 border-2 border-border/50 rounded-xl bg-secondary/10 space-y-4">
             <h3 className="font-bold text-foreground mb-2">المنتجات</h3>
-            {formData.items.map((item, index) => (
+            {formData.items.map((item, index) => {
+              const selectedProduct = products.find(p => p.id.toString() === item.productId);
+              const stockLeft = selectedProduct?.stockQuantity ?? null;
+              return (
               <div key={index} className="grid grid-cols-12 gap-3 items-end">
                 <div className="col-span-12 sm:col-span-5">
                   <Select
                     label={index === 0 ? "المنتج *" : undefined}
                     required
-                    options={products.map((p) => ({ label: p.name, value: p.id }))}
+                    options={products.map((p) => ({ label: `${p.name} (${p.stockQuantity} متبقية)`, value: p.id }))}
                     value={item.productId}
                     onChange={(e) => handleProductChange(index, e.target.value)}
                   />
+                  {selectedProduct && (
+                    <p className={`text-xs mt-1 ${stockLeft !== null && stockLeft < 10 ? "text-destructive" : "text-muted-foreground"}`}>
+                      المخزون المتاح: <strong>{stockLeft}</strong>
+                      {stockLeft !== null && stockLeft < 10 && <span className="mr-1">⚠ منخفض</span>}
+                    </p>
+                  )}
                 </div>
                 <div className="col-span-5 sm:col-span-3">
                   <Input
@@ -369,7 +382,8 @@ export default function Orders() {
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
             <Button
               type="button"
               variant="outline"
@@ -386,6 +400,13 @@ export default function Orders() {
             value={formData.notes}
             onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
           />
+
+          {apiErrorMessage && (
+            <div className="flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-xl text-destructive text-sm">
+              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>{apiErrorMessage}</span>
+            </div>
+          )}
 
           <div className="pt-4 flex justify-end gap-3 border-t border-border">
             <Button
