@@ -1,0 +1,132 @@
+Build a full-stack ERP web application for a poultry trading business (chicks & chickens). Use React for the frontend, Node.js/Express for the backend, and PostgreSQL (or SQLite for simplicity) as the database. The app should be clean, modern, and fully responsive (mobile-friendly for delivery agents). Use Arabic as the primary UI language.
+
+---
+
+## 👥 Authentication & User Roles
+
+### Two roles: Admin & Delivery Agent (Mandoob)
+
+- Login page with username/phone number + password
+- JWT-based authentication with protected routes
+- Admin can:
+  - Create delivery agent accounts
+  - Set username (or phone number) and password for each agent
+  - Full access to all system features
+- Delivery Agent can:
+  - Only see their assigned orders and personal dashboard
+  - Update order status and log delivery details
+
+---
+
+## 📦 Modules
+
+### 1. 🧑‍💼 Customer Management (إدارة العملاء)
+Each customer record includes:
+- Customer ID (auto-generated)
+- Full Name
+- Phone Number
+- Location / Address
+- Opening Balance (optional, default 0)
+- Notes field
+- Created date
+
+### 2. 🐣 Product Management (إدارة المنتجات)
+Products include items like chicks (كتاكيت) or chickens (فراخ):
+- Product Name
+- Type (chicks / chickens / other)
+- Unit Price
+- Available Quantity/Stock
+- Description / additional notes
+- Created date
+
+### 3. 📋 Order Management (إدارة الطلبات)
+Admin creates orders with:
+- Auto-generated Order ID
+- Select Customer → auto-display customer details (name, phone, location, balance)
+- Select one or more products with quantity and price
+- Assign a Delivery Agent (Mandoob)
+- Order date & expected delivery date
+- Order notes
+- Order status: (قيد الانتظار / جاري التجهيز / جاري التوصيل / تم التوصيل / ملغي)
+
+When an order is assigned to an agent, a notification is sent to that agent instantly.
+
+### 4. 🚚 Delivery Agent Dashboard (لوحة المندوب)
+The agent sees:
+- List of orders assigned to them (filterable by status)
+- Full order details including customer name, phone, location, products, quantity
+- Ability to update order status:
+  - جاري التجهيز (In Preparation)
+  - جاري التوصيل (Out for Delivery)
+  - تم التوصيل (Delivered)
+- Per-order logging form:
+  - Amount collected from customer (المبلغ المحصل)
+  - Actual quantity delivered (الكمية المسلمة)
+  - Fuel expenses (مصاريف بنزين)
+  - Personal/other expenses (مصاريف أخرى)
+  - Delivery notes / remarks
+
+### 5. 📊 Sales & Finance Dashboard (المبيعات والمالية)
+Admin-only page showing:
+- Total orders (by status)
+- Total revenue (from delivered orders)
+- Total collected amounts vs. expected
+- Per-agent performance summary (orders completed, money collected, expenses)
+- Customer balances and outstanding payments
+- Product sales breakdown (units sold per product)
+- Date range filters (daily / weekly / monthly / custom)
+- Export to PDF or Excel (optional but preferred)
+
+---
+
+## 🔔 Notifications System (نظام الإشعارات)
+
+Real-time or polling-based notification system for both Admin and Agent:
+
+- **Admin receives notifications when:**
+  - Agent updates an order status
+  - Delivery is completed
+  - Agent logs collected amount or expenses
+
+- **Agent receives notifications when:**
+  - Admin assigns a new order to them
+  - Admin updates or cancels an order
+
+- Notification bell icon in the top navbar showing unread count
+- Notification list with: message, order ID, timestamp, read/unread state
+- Mark as read individually or all at once
+
+---
+
+## 🎨 UI/UX Requirements
+
+- RTL (right-to-left) layout for Arabic
+- Clean dashboard with sidebar navigation
+- Color-coded order statuses (badges)
+- Mobile-friendly layout (agents use phones)
+- Use a modern UI library (e.g., Tailwind CSS + shadcn/ui or Material UI)
+- Charts for the finance dashboard (use Recharts or Chart.js)
+
+---
+
+## 🗃️ Database Schema (suggested tables)
+
+- users (id, name, phone, username, password_hash, role)
+- customers (id, name, phone, location, opening_balance, notes)
+- products (id, name, type, unit_price, stock_quantity, description)
+- orders (id, customer_id, agent_id, status, order_date, delivery_date, notes)
+- order_items (id, order_id, product_id, quantity, unit_price)
+- delivery_logs (id, order_id, agent_id, collected_amount, delivered_quantity, fuel_expense, other_expenses, notes, logged_at)
+- notifications (id, user_id, message, order_id, is_read, created_at)
+
+---
+
+## ⚙️ Tech Stack
+
+- Frontend: React + Tailwind CSS
+- Backend: Node.js + Express
+- Database: PostgreSQL or SQLite
+- Auth: JWT + bcrypt
+- Real-time (optional): Socket.io or polling every 30s for notifications
+- Charts: Recharts
+- All text/labels in Arabic, RTL layout
