@@ -25,6 +25,10 @@ interface DateRange {
   to: string;
 }
 
+function toYMD(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
 function computeRange(option: DateRangeOption, customFrom: string, customTo: string): DateRange {
   const to = new Date();
   const from = new Date();
@@ -44,12 +48,12 @@ function computeRange(option: DateRangeOption, customFrom: string, customTo: str
       break;
     case "custom":
       return {
-        from: customFrom ? new Date(customFrom).toISOString() : from.toISOString(),
-        to: customTo ? new Date(customTo).toISOString() : to.toISOString(),
+        from: customFrom || toYMD(from),
+        to: customTo || toYMD(to),
       };
   }
 
-  return { from: from.toISOString(), to: to.toISOString() };
+  return { from: toYMD(from), to: toYMD(to) };
 }
 
 interface StatCardProps {
