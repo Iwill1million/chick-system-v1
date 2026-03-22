@@ -33,8 +33,21 @@ A full-stack Arabic RTL ERP web application for a poultry trading business (chic
 - **Agents** (`/agents`) — View and manage delivery agents
 
 ### Agent Features
-- **My Orders** (`/agent/orders`) — View orders assigned to them
+- **My Orders** (`/agent/orders`) — View orders assigned to them with **daily stats panel** (total/completed/remaining/collected + progress bar)
 - **Order Detail** (`/agent/orders/:id`) — Log delivery progress, update status
+
+### Dark Mode
+- Toggle button in both mobile and desktop headers (Moon/Sun icon)
+- Persists to `localStorage` key `poultry_erp_theme`; falls back to system `prefers-color-scheme`
+- CSS variables under `.dark` class override `:root` tokens
+
+### PWA (Progressive Web App)
+- Installable on iOS and Android ("Add to Home Screen")
+- Standalone mode (no browser chrome)
+- Arabic app name + teal chicken-themed icons (192x192, 512x512 PNG)
+- Offline fallback page at `/offline.html`
+- Service worker via `vite-plugin-pwa` (autoUpdate mode) with Network-First caching for API calls
+- `manifest.json` at `/public/manifest.json`; icons at `/public/icons/`
 
 ### Notifications
 - Bell icon in header shows unread count badge
