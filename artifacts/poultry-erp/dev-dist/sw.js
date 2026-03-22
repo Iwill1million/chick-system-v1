@@ -67,7 +67,7 @@ if (!self.define) {
     });
   };
 }
-define(['./workbox-593515e5'], (function (workbox) { 'use strict';
+define(['./workbox-dcb3ec6a'], (function (workbox) { 'use strict';
 
   self.skipWaiting();
   workbox.clientsClaim();
@@ -80,8 +80,15 @@ define(['./workbox-593515e5'], (function (workbox) { 'use strict';
   workbox.precacheAndRoute([{
     "url": "registerSW.js",
     "revision": "3ca0b8505b4bec776b69afdba2768812"
+  }, {
+    "url": "/offline.html",
+    "revision": "0.39lle10jfe"
   }], {});
   workbox.cleanupOutdatedCaches();
+  workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("/offline.html"), {
+    allowlist: [/^\/$/],
+    denylist: [/^\/api\//, /^\/icons\//, /^\/manifest\.json/]
+  }));
   workbox.registerRoute(/^\/api\/.*/i, new workbox.NetworkFirst({
     "cacheName": "api-cache",
     "networkTimeoutSeconds": 10,
