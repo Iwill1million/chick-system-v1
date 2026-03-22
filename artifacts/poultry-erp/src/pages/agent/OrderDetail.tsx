@@ -6,6 +6,7 @@ import { Button, Card, Badge, Modal, Input } from "@/components/ui-components";
 import { formatCurrency, formatDate, statusColors, statusLabels } from "@/lib/utils";
 import { MapPin, Phone, Calendar, Package, ArrowRight, Truck, CheckCircle2, XCircle } from "lucide-react";
 import { Link } from "wouter";
+import OrderHistoryTimeline from "@/components/OrderHistoryTimeline";
 
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
@@ -125,6 +126,9 @@ export default function OrderDetail() {
           ))}
         </Card>
       )}
+
+      {/* Order History Timeline */}
+      <OrderHistoryTimeline orderId={orderId} />
 
       {/* Action Buttons */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-card border-t border-border shadow-[0_-10px_40px_rgba(0,0,0,0.05)] md:relative md:bg-transparent md:border-0 md:shadow-none md:p-0 flex flex-wrap gap-3">

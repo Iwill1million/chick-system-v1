@@ -1,6 +1,6 @@
 import { Router, type IRouter, Request, Response } from "express";
 import { db } from "@workspace/db";
-import { ordersTable, orderItemsTable, customersTable, usersTable, productsTable, notificationsTable, deliveryLogsTable } from "@workspace/db/schema";
+import { ordersTable, orderItemsTable, customersTable, usersTable, productsTable, notificationsTable, deliveryLogsTable, orderHistoryTable } from "@workspace/db/schema";
 import { eq, and, SQL, sql, gte } from "drizzle-orm";
 import { authenticateToken, requireAdmin, AuthPayload } from "../middlewares/auth";
 import { CreateOrderBody, UpdateOrderBody, UpdateOrderStatusBody } from "@workspace/api-zod";
@@ -281,6 +281,7 @@ router.delete("/orders/:id", authenticateToken, requireAdmin, async (req: Reques
   if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
   await db.delete(notificationsTable).where(eq(notificationsTable.orderId, id));
   await db.delete(deliveryLogsTable).where(eq(deliveryLogsTable.orderId, id));
+  await db.delete(orderHistoryTable).where(eq(orderHistoryTable.orderId, id));
   await db.delete(orderItemsTable).where(eq(orderItemsTable.orderId, id));
   await db.delete(ordersTable).where(eq(ordersTable.id, id));
   res.status(204).send();
@@ -324,31 +325,73 @@ router.patch("/orders/:id/status", authenticateToken, async (req: Request, res: 
     return;
   }
 
-  await db.update(ordersTable).set({
-    status: newStatus as typeof ordersTable.$inferInsert["status"],
-  }).where(eq(ordersTable.id, id));
+  const statusLabels: Record<string, string> = {
+    pending: "قيد الانتظار",
+    preparing: "جاري التجهيز",
+    delivering: "جاري التوصيل",
+    delivered: "تم التوصيل",
+    cancelled: "ملغي",
+  };
 
-  const admins = await db.select().from(usersTable).where(eq(usersTable.role, "admin"));
-  if (admins.length > 0) {
-    const statusLabels: Record<string, string> = {
-      pending: "قيد الانتظار",
-      preparing: "جاري التجهيز",
-      delivering: "جاري التوصيل",
-      delivered: "تم التوصيل",
-      cancelled: "ملغي",
-    };
-    await db.insert(notificationsTable).values(
-      admins.map(admin => ({
-        userId: admin.id,
-        message: `تم تحديث حالة الطلب #${id} إلى ${statusLabels[body.data.status] ?? body.data.status}`,
-        orderId: id,
-        isRead: false,
-      }))
-    );
-  }
+  await db.transaction(async (tx) => {
+    await tx.update(ordersTable).set({
+      status: newStatus as typeof ordersTable.$inferInsert["status"],
+    }).where(eq(ordersTable.id, id));
+
+    await tx.insert(orderHistoryTable).values({
+      orderId: id,
+      changedBy: authReq.user.userId,
+      oldStatus: currentStatus as typeof orderHistoryTable.$inferInsert["oldStatus"],
+      newStatus: newStatus as typeof orderHistoryTable.$inferInsert["newStatus"],
+    });
+
+    const admins = await tx.select().from(usersTable).where(eq(usersTable.role, "admin"));
+    if (admins.length > 0) {
+      await tx.insert(notificationsTable).values(
+        admins.map(admin => ({
+          userId: admin.id,
+          message: `تم تحديث حالة الطلب #${id} إلى ${statusLabels[body.data.status] ?? body.data.status}`,
+          orderId: id,
+          isRead: false,
+        }))
+      );
+    }
+  });
 
   const result = await getOrderWithDetails(id);
   res.json(result);
+});
+
+router.get("/orders/:id/history", authenticateToken, async (req: Request, res: Response) => {
+  const id = parseInt(String(req.params["id"] ?? ""), 10);
+  if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
+  const authReq = req as AuthRequest;
+
+  const order = await db.select({ agentId: ordersTable.agentId }).from(ordersTable).where(eq(ordersTable.id, id));
+  if (!order[0]) {
+    res.status(404).json({ message: "الطلب غير موجود" });
+    return;
+  }
+
+  if (authReq.user.role === "agent" && order[0].agentId !== authReq.user.userId) {
+    res.status(403).json({ message: "غير مصرح بالوصول" });
+    return;
+  }
+
+  const history = await db.select().from(orderHistoryTable).where(eq(orderHistoryTable.orderId, id));
+  const historyWithUsers = await Promise.all(history.map(async (entry) => {
+    const [user] = await db.select({ id: usersTable.id, name: usersTable.name }).from(usersTable).where(eq(usersTable.id, entry.changedBy));
+    return {
+      id: entry.id,
+      orderId: entry.orderId,
+      changedBy: user ? { id: user.id, name: user.name } : { id: entry.changedBy, name: "مستخدم محذوف" },
+      oldStatus: entry.oldStatus,
+      newStatus: entry.newStatus,
+      changedAt: entry.changedAt.toISOString(),
+    };
+  }));
+
+  res.json(historyWithUsers.sort((a, b) => a.id - b.id));
 });
 
 export default router;

@@ -17,7 +17,7 @@ interface PrintInvoiceProps {
     id: number;
     orderDate: string;
     status: string;
-    customer?: { name?: string; phone?: string; location?: string } | null;
+    customer?: { name?: string | null; phone?: string | null; location?: string | null } | null;
     agent?: { name?: string } | null;
     items: OrderItem[];
   };

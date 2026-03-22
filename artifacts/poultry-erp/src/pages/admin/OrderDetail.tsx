@@ -5,6 +5,7 @@ import { formatCurrency, formatDate, statusColors, statusLabels } from "@/lib/ut
 import { MapPin, Phone, Calendar, Package, ArrowRight, Truck, CheckCircle2, Printer } from "lucide-react";
 import { Link } from "wouter";
 import PrintInvoice from "@/components/PrintInvoice";
+import OrderHistoryTimeline from "@/components/OrderHistoryTimeline";
 
 export default function AdminOrderDetail() {
   const { id } = useParams<{ id: string }>();
@@ -138,6 +139,9 @@ export default function AdminOrderDetail() {
             <p className="text-sm">لم يتم تسجيل أي توصيل بعد</p>
           </Card>
         )}
+
+        {/* Order History Timeline */}
+        <OrderHistoryTimeline orderId={orderId} />
       </div>
     </>
   );
