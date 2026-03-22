@@ -214,6 +214,20 @@ export interface UpdateOrderStatusRequest {
   status: UpdateOrderStatusRequestStatus;
 }
 
+export type OrderHistoryEntryChangedBy = {
+  id: number;
+  name: string;
+};
+
+export interface OrderHistoryEntry {
+  id: number;
+  orderId: number;
+  changedBy: OrderHistoryEntryChangedBy;
+  oldStatus: OrderWithDetailsStatus;
+  newStatus: OrderWithDetailsStatus;
+  changedAt: string;
+}
+
 export interface DeliveryLog {
   id: number;
   orderId: number;
@@ -269,6 +283,7 @@ export interface CustomerBalance {
   openingBalance: string;
   totalOrders: number;
   totalCollected: string;
+  balance: string;
 }
 
 export interface ProductSale {
@@ -278,15 +293,102 @@ export interface ProductSale {
   totalRevenue: string;
 }
 
+export interface DailyOrderCount {
+  date: string;
+  count: number;
+}
+
 export interface FinanceSummary {
   totalOrders: number;
   deliveredOrders: number;
   totalRevenue: string;
   totalCollected: string;
+  totalReceivables: string;
   ordersByStatus: StatusCount[];
   agentPerformance: AgentPerformance[];
   customerBalances: CustomerBalance[];
   productSales: ProductSale[];
+  dailyOrders: DailyOrderCount[];
+}
+
+export type CustomerPaymentCreatedBy = {
+  id: number;
+  name: string;
+} | null;
+
+export interface CustomerPayment {
+  id: number;
+  customerId: number;
+  amount: string;
+  paymentDate: string;
+  notes?: string | null;
+  createdAt?: string | null;
+  createdBy?: CustomerPaymentCreatedBy;
+}
+
+export interface CreateCustomerPaymentRequest {
+  amount: number;
+  paymentDate: string;
+  notes?: string | null;
+}
+
+export interface CustomerStatementSummary {
+  openingBalance: string;
+  totalOrders: string;
+  totalPaid: string;
+  currentBalance: string;
+}
+
+export type CustomerStatementCustomer = {
+  id: number;
+  name: string;
+  phone?: string | null;
+  location?: string | null;
+  openingBalance: string;
+};
+
+export type CustomerStatementTransactionsItemType =
+  (typeof CustomerStatementTransactionsItemType)[keyof typeof CustomerStatementTransactionsItemType];
+
+export const CustomerStatementTransactionsItemType = {
+  order: "order",
+  payment: "payment",
+} as const;
+
+export type CustomerStatementTransactionsItem = {
+  type: CustomerStatementTransactionsItemType;
+  date: string;
+  id: number;
+  runningBalance: number;
+};
+
+export interface CustomerStatement {
+  customer: CustomerStatementCustomer;
+  summary: CustomerStatementSummary;
+  transactions: CustomerStatementTransactionsItem[];
+}
+
+export interface CompanySettings {
+  name: string;
+  address: string;
+  phone: string;
+  commercialRegNo: string;
+  logoUrl: string;
+}
+
+export interface RequestUploadUrlBody {
+  /** @minLength 1 */
+  name: string;
+  /** @minimum 1 */
+  size: number;
+  /** @minLength 1 */
+  contentType: string;
+}
+
+export interface RequestUploadUrlResponse {
+  uploadURL: string;
+  objectPath: string;
+  metadata?: RequestUploadUrlBody;
 }
 
 export type ListOrdersParams = {
@@ -297,4 +399,15 @@ export type ListOrdersParams = {
 export type GetFinanceSummaryParams = {
   from?: string;
   to?: string;
+};
+
+export type CompleteUploadBody = {
+  /** Object path returned by requestUploadUrl (e.g. /objects/uploads/uuid) */
+  objectPath: string;
+};
+
+export type CompleteUpload200 = {
+  /** Public serving URL for the object */
+  serveUrl: string;
+  objectPath: string;
 };

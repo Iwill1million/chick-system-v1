@@ -1,7 +1,7 @@
 import { Router, type IRouter, Request, Response } from "express";
 import { db } from "@workspace/db";
-import { ordersTable, orderItemsTable, customersTable, usersTable, productsTable, notificationsTable } from "@workspace/db/schema";
-import { eq, and } from "drizzle-orm";
+import { ordersTable, orderItemsTable, customersTable, usersTable, productsTable, notificationsTable, deliveryLogsTable, orderHistoryTable } from "@workspace/db/schema";
+import { eq, and, SQL, sql, gte, asc } from "drizzle-orm";
 import { authenticateToken, requireAdmin, AuthPayload } from "../middlewares/auth";
 import { CreateOrderBody, UpdateOrderBody, UpdateOrderStatusBody } from "@workspace/api-zod";
 
@@ -81,17 +81,22 @@ router.get("/orders", authenticateToken, async (req: Request, res: Response) => 
   const authReq = req as AuthRequest;
   const { status, agentId } = req.query;
 
-  let allOrders = await db.select().from(ordersTable);
+  const conditions: SQL[] = [];
 
   if (authReq.user.role === "agent") {
-    allOrders = allOrders.filter(o => o.agentId === authReq.user.userId);
-  } else if (agentId) {
-    allOrders = allOrders.filter(o => o.agentId === parseInt(agentId as string));
+    conditions.push(eq(ordersTable.agentId, authReq.user.userId));
+  } else if (agentId && typeof agentId === "string") {
+    const parsedAgentId = parseInt(agentId, 10);
+    if (!isNaN(parsedAgentId)) conditions.push(eq(ordersTable.agentId, parsedAgentId));
   }
 
-  if (status) {
-    allOrders = allOrders.filter(o => o.status === status);
+  if (status && typeof status === "string") {
+    conditions.push(eq(ordersTable.status, status as typeof ordersTable.$inferSelect["status"]));
   }
+
+  const allOrders = conditions.length > 0
+    ? await db.select().from(ordersTable).where(and(...conditions))
+    : await db.select().from(ordersTable);
 
   const ordersWithDetails = await Promise.all(allOrders.map(o => getOrderWithDetails(o.id)));
   res.json(ordersWithDetails.filter(Boolean));
@@ -100,41 +105,97 @@ router.get("/orders", authenticateToken, async (req: Request, res: Response) => 
 router.post("/orders", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
   const body = CreateOrderBody.safeParse(req.body);
   if (!body.success) {
-    res.status(400).json({ message: "Invalid request" });
+    res.status(400).json({ message: "بيانات الطلب غير صحيحة" });
     return;
   }
 
   const { customerId, agentId, orderDate, deliveryDate, notes, items } = body.data;
 
-  const inserted = await db.insert(ordersTable).values({
-    customerId,
-    agentId: agentId ?? null,
-    status: "pending",
-    orderDate,
-    deliveryDate: deliveryDate ?? null,
-    notes: notes ?? null,
-  }).returning();
-
-  const order = inserted[0];
-
+  // Enforce positive integer quantities (server-side guard)
   if (items && items.length > 0) {
-    await db.insert(orderItemsTable).values(
-      items.map(item => ({
-        orderId: order.id,
-        productId: item.productId,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-      }))
-    );
+    for (const item of items) {
+      if (!Number.isInteger(item.quantity) || item.quantity < 1) {
+        res.status(400).json({ message: "الكمية يجب أن تكون عدداً صحيحاً موجباً (1 على الأقل)" });
+        return;
+      }
+    }
   }
 
-  if (agentId) {
-    await db.insert(notificationsTable).values({
-      userId: agentId,
-      message: `تم تعيين طلب جديد رقم #${order.id} إليك`,
-      orderId: order.id,
-      isRead: false,
+  let order: typeof ordersTable.$inferSelect;
+  try {
+    order = await db.transaction(async (tx) => {
+      const inserted = await tx.insert(ordersTable).values({
+        customerId,
+        agentId: agentId ?? null,
+        status: "pending",
+        orderDate,
+        deliveryDate: deliveryDate ?? null,
+        notes: notes ?? null,
+      }).returning();
+
+      const newOrder = inserted[0]!;
+
+      if (items && items.length > 0) {
+        // Aggregate total quantity requested per product (handles duplicate rows)
+        const productTotals = new Map<number, number>();
+        for (const item of items) {
+          productTotals.set(item.productId, (productTotals.get(item.productId) ?? 0) + item.quantity);
+        }
+
+        // Atomic stock check + deduction per unique product inside the transaction
+        for (const [productId, totalQty] of productTotals) {
+          // Fetch current product info for error message
+          const [product] = await tx
+            .select({ id: productsTable.id, name: productsTable.name, stock: productsTable.stockQuantity })
+            .from(productsTable)
+            .where(eq(productsTable.id, productId));
+
+          if (!product) {
+            throw Object.assign(new Error(`المنتج رقم ${productId} غير موجود`), { httpStatus: 400 });
+          }
+
+          // Conditional update: only deducts if stock >= totalQty (atomic check+deduct)
+          const updated = await tx
+            .update(productsTable)
+            .set({ stockQuantity: sql`${productsTable.stockQuantity} - ${totalQty}` })
+            .where(and(eq(productsTable.id, productId), gte(productsTable.stockQuantity, totalQty)))
+            .returning({ id: productsTable.id });
+
+          if (updated.length === 0) {
+            throw Object.assign(
+              new Error(`الكمية المطلوبة من "${product.name}" (${totalQty}) تتجاوز المخزون المتاح (${product.stock} متبقية)`),
+              { httpStatus: 422 }
+            );
+          }
+        }
+
+        await tx.insert(orderItemsTable).values(
+          items.map(item => ({
+            orderId: newOrder.id,
+            productId: item.productId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+          }))
+        );
+      }
+
+      if (agentId) {
+        await tx.insert(notificationsTable).values({
+          userId: agentId,
+          message: `تم تعيين طلب جديد رقم #${newOrder.id} إليك`,
+          orderId: newOrder.id,
+          isRead: false,
+        });
+      }
+
+      return newOrder;
     });
+  } catch (err: unknown) {
+    if (err instanceof Error && "httpStatus" in err) {
+      res.status((err as { httpStatus: number }).httpStatus).json({ message: err.message });
+      return;
+    }
+    throw err;
   }
 
   const result = await getOrderWithDetails(order.id);
@@ -142,17 +203,18 @@ router.post("/orders", authenticateToken, requireAdmin, async (req: Request, res
 });
 
 router.get("/orders/:id", authenticateToken, async (req: Request, res: Response) => {
-  const id = parseInt(String(req.params["id"] ?? "0"));
+  const id = parseInt(String(req.params["id"] ?? ""), 10);
+  if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
   const authReq = req as AuthRequest;
 
   const result = await getOrderWithDetails(id);
   if (!result) {
-    res.status(404).json({ message: "Order not found" });
+    res.status(404).json({ message: "الطلب غير موجود" });
     return;
   }
 
   if (authReq.user.role === "agent" && result.agentId !== authReq.user.userId) {
-    res.status(403).json({ message: "Forbidden" });
+    res.status(403).json({ message: "غير مصرح بالوصول" });
     return;
   }
 
@@ -160,20 +222,23 @@ router.get("/orders/:id", authenticateToken, async (req: Request, res: Response)
 });
 
 router.put("/orders/:id", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
-  const id = parseInt(String(req.params["id"] ?? "0"));
+  const id = parseInt(String(req.params["id"] ?? ""), 10);
+  if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
+  const authReq = req as AuthRequest;
   const body = UpdateOrderBody.safeParse(req.body);
   if (!body.success) {
-    res.status(400).json({ message: "Invalid request" });
+    res.status(400).json({ message: "بيانات التعديل غير صحيحة" });
     return;
   }
 
   const existing = await db.select().from(ordersTable).where(eq(ordersTable.id, id));
   if (!existing[0]) {
-    res.status(404).json({ message: "Order not found" });
+    res.status(404).json({ message: "الطلب غير موجود" });
     return;
   }
 
   const oldAgentId = existing[0].agentId;
+  const oldStatus = existing[0].status;
 
   const updates: Partial<typeof ordersTable.$inferInsert> = {};
   if (body.data.customerId !== undefined) updates.customerId = body.data.customerId;
@@ -184,6 +249,16 @@ router.put("/orders/:id", authenticateToken, requireAdmin, async (req: Request, 
   if (body.data.notes !== undefined) updates.notes = body.data.notes;
 
   await db.update(ordersTable).set(updates).where(eq(ordersTable.id, id));
+
+  // Log history if status changed via PUT
+  if (body.data.status !== undefined && body.data.status !== oldStatus) {
+    await db.insert(orderHistoryTable).values({
+      orderId: id,
+      changedBy: authReq.user.userId,
+      oldStatus: oldStatus as typeof orderHistoryTable.$inferInsert["oldStatus"],
+      newStatus: body.data.status as typeof orderHistoryTable.$inferInsert["newStatus"],
+    });
+  }
 
   if (body.data.items !== undefined) {
     await db.delete(orderItemsTable).where(eq(orderItemsTable.orderId, id));
@@ -214,57 +289,139 @@ router.put("/orders/:id", authenticateToken, requireAdmin, async (req: Request, 
 });
 
 router.delete("/orders/:id", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
-  const id = parseInt(String(req.params["id"] ?? "0"));
+  const id = parseInt(String(req.params["id"] ?? ""), 10);
+  if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
+  await db.delete(notificationsTable).where(eq(notificationsTable.orderId, id));
+  await db.delete(deliveryLogsTable).where(eq(deliveryLogsTable.orderId, id));
+  await db.delete(orderHistoryTable).where(eq(orderHistoryTable.orderId, id));
   await db.delete(orderItemsTable).where(eq(orderItemsTable.orderId, id));
   await db.delete(ordersTable).where(eq(ordersTable.id, id));
   res.status(204).send();
 });
 
 router.patch("/orders/:id/status", authenticateToken, async (req: Request, res: Response) => {
-  const id = parseInt(String(req.params["id"] ?? "0"));
+  const id = parseInt(String(req.params["id"] ?? ""), 10);
+  if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
   const authReq = req as AuthRequest;
   const body = UpdateOrderStatusBody.safeParse(req.body);
   if (!body.success) {
-    res.status(400).json({ message: "Invalid request" });
+    res.status(400).json({ message: "حالة الطلب غير صحيحة" });
     return;
   }
 
   const existing = await db.select().from(ordersTable).where(eq(ordersTable.id, id));
   if (!existing[0]) {
-    res.status(404).json({ message: "Order not found" });
+    res.status(404).json({ message: "الطلب غير موجود" });
     return;
   }
 
   if (authReq.user.role === "agent" && existing[0].agentId !== authReq.user.userId) {
-    res.status(403).json({ message: "Forbidden" });
+    res.status(403).json({ message: "غير مصرح بالوصول" });
     return;
   }
 
-  await db.update(ordersTable).set({
-    status: body.data.status as typeof ordersTable.$inferInsert["status"],
-  }).where(eq(ordersTable.id, id));
+  const currentStatus = existing[0].status;
+  const newStatus = body.data.status;
 
-  const admins = await db.select().from(usersTable).where(eq(usersTable.role, "admin"));
-  if (admins.length > 0) {
-    const statusLabels: Record<string, string> = {
-      pending: "قيد الانتظار",
-      preparing: "جاري التجهيز",
-      delivering: "جاري التوصيل",
-      delivered: "تم التوصيل",
-      cancelled: "ملغي",
-    };
-    await db.insert(notificationsTable).values(
-      admins.map(admin => ({
-        userId: admin.id,
-        message: `تم تحديث حالة الطلب #${id} إلى ${statusLabels[body.data.status] ?? body.data.status}`,
-        orderId: id,
-        isRead: false,
-      }))
-    );
+  const allowedTransitions: Record<string, string[]> = {
+    pending: ["preparing", "cancelled"],
+    preparing: ["delivering", "cancelled"],
+    delivering: ["delivered", "cancelled"],
+    delivered: [],
+    cancelled: [],
+  };
+
+  const allowed = allowedTransitions[currentStatus] ?? [];
+  if (!allowed.includes(newStatus)) {
+    res.status(400).json({ message: `لا يمكن تغيير الحالة من "${currentStatus}" إلى "${newStatus}"` });
+    return;
   }
+
+  const statusLabels: Record<string, string> = {
+    pending: "قيد الانتظار",
+    preparing: "جاري التجهيز",
+    delivering: "جاري التوصيل",
+    delivered: "تم التوصيل",
+    cancelled: "ملغي",
+  };
+
+  await db.transaction(async (tx) => {
+    await tx.update(ordersTable).set({
+      status: newStatus as typeof ordersTable.$inferInsert["status"],
+    }).where(eq(ordersTable.id, id));
+
+    if (newStatus === "cancelled") {
+      const items = await tx.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, id));
+      for (const item of items) {
+        await tx.update(productsTable)
+          .set({ stockQuantity: sql`${productsTable.stockQuantity} + ${item.quantity}` })
+          .where(eq(productsTable.id, item.productId));
+      }
+    }
+
+    await tx.insert(orderHistoryTable).values({
+      orderId: id,
+      changedBy: authReq.user.userId,
+      oldStatus: currentStatus as typeof orderHistoryTable.$inferInsert["oldStatus"],
+      newStatus: newStatus as typeof orderHistoryTable.$inferInsert["newStatus"],
+    });
+
+    const admins = await tx.select().from(usersTable).where(eq(usersTable.role, "admin"));
+    if (admins.length > 0) {
+      await tx.insert(notificationsTable).values(
+        admins.map(admin => ({
+          userId: admin.id,
+          message: `تم تحديث حالة الطلب #${id} إلى ${statusLabels[body.data.status] ?? body.data.status}`,
+          orderId: id,
+          isRead: false,
+        }))
+      );
+    }
+  });
 
   const result = await getOrderWithDetails(id);
   res.json(result);
+});
+
+router.get("/orders/:id/history", authenticateToken, async (req: Request, res: Response) => {
+  const id = parseInt(String(req.params["id"] ?? ""), 10);
+  if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
+  const authReq = req as AuthRequest;
+
+  const order = await db.select({ agentId: ordersTable.agentId }).from(ordersTable).where(eq(ordersTable.id, id));
+  if (!order[0]) {
+    res.status(404).json({ message: "الطلب غير موجود" });
+    return;
+  }
+
+  if (authReq.user.role === "agent" && order[0].agentId !== authReq.user.userId) {
+    res.status(403).json({ message: "غير مصرح بالوصول" });
+    return;
+  }
+
+  const rows = await db
+    .select({
+      id: orderHistoryTable.id,
+      orderId: orderHistoryTable.orderId,
+      changedById: orderHistoryTable.changedBy,
+      changedByName: usersTable.name,
+      oldStatus: orderHistoryTable.oldStatus,
+      newStatus: orderHistoryTable.newStatus,
+      changedAt: orderHistoryTable.changedAt,
+    })
+    .from(orderHistoryTable)
+    .leftJoin(usersTable, eq(orderHistoryTable.changedBy, usersTable.id))
+    .where(eq(orderHistoryTable.orderId, id))
+    .orderBy(asc(orderHistoryTable.id));
+
+  res.json(rows.map(row => ({
+    id: row.id,
+    orderId: row.orderId,
+    changedBy: { id: row.changedById, name: row.changedByName ?? "مستخدم محذوف" },
+    oldStatus: row.oldStatus,
+    newStatus: row.newStatus,
+    changedAt: row.changedAt.toISOString(),
+  })));
 });
 
 export default router;

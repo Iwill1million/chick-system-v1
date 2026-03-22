@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import {
   useListCustomers,
   useCreateCustomer,
@@ -9,7 +10,7 @@ import type { Customer } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button, Input, Modal, Table, Th, Td, Card } from "@/components/ui-components";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { Plus, Edit2, Trash2, Search } from "lucide-react";
+import { Plus, Edit2, Trash2, Search, FileText } from "lucide-react";
 
 interface CustomerFormState {
   name: string;
@@ -138,6 +139,11 @@ export default function Customers() {
                   <Td>{formatDate(c.createdAt)}</Td>
                   <Td>
                     <div className="flex gap-2">
+                      <Link href={`/customers/${c.id}/statement`}>
+                        <Button variant="ghost" size="icon" title="كشف الحساب">
+                          <FileText className="w-4 h-4 text-primary" />
+                        </Button>
+                      </Link>
                       <Button variant="ghost" size="icon" onClick={() => openEdit(c)}>
                         <Edit2 className="w-4 h-4 text-blue-600" />
                       </Button>

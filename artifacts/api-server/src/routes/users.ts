@@ -29,11 +29,18 @@ router.get("/users", authenticateToken, requireAdmin, async (_req: Request, res:
 router.post("/users", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
   const body = CreateUserBody.safeParse(req.body);
   if (!body.success) {
-    res.status(400).json({ message: "Invalid request" });
+    res.status(400).json({ message: "بيانات غير صحيحة" });
     return;
   }
 
   const { name, phone, username, password, role } = body.data;
+
+  const existing = await db.select().from(usersTable).where(eq(usersTable.username, username));
+  if (existing.length > 0) {
+    res.status(409).json({ message: "اسم المستخدم مستخدم بالفعل" });
+    return;
+  }
+
   const passwordHash = await bcrypt.hash(password, 10);
 
   const inserted = await db.insert(usersTable).values({
@@ -48,17 +55,18 @@ router.post("/users", authenticateToken, requireAdmin, async (req: Request, res:
 });
 
 router.get("/users/:id", authenticateToken, async (req: Request, res: Response) => {
-  const id = parseInt(String(req.params["id"] ?? "0"));
+  const id = parseInt(String(req.params["id"] ?? ""), 10);
+  if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
   const authReq = req as AuthRequest;
 
   if (authReq.user.role !== "admin" && authReq.user.userId !== id) {
-    res.status(403).json({ message: "Forbidden" });
+    res.status(403).json({ message: "غير مصرح بالوصول" });
     return;
   }
 
   const users = await db.select().from(usersTable).where(eq(usersTable.id, id));
   if (!users[0]) {
-    res.status(404).json({ message: "User not found" });
+    res.status(404).json({ message: "المستخدم غير موجود" });
     return;
   }
 
@@ -66,14 +74,24 @@ router.get("/users/:id", authenticateToken, async (req: Request, res: Response) 
 });
 
 router.put("/users/:id", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
-  const id = parseInt(String(req.params["id"] ?? "0"));
+  const id = parseInt(String(req.params["id"] ?? ""), 10);
+  if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
   const body = UpdateUserBody.safeParse(req.body);
   if (!body.success) {
-    res.status(400).json({ message: "Invalid request" });
+    res.status(400).json({ message: "بيانات غير صحيحة" });
     return;
   }
 
   const { name, phone, username, password, role } = body.data;
+
+  if (username !== undefined) {
+    const conflict = await db.select().from(usersTable).where(eq(usersTable.username, username));
+    if (conflict.length > 0 && conflict[0].id !== id) {
+      res.status(409).json({ message: "اسم المستخدم مستخدم بالفعل" });
+      return;
+    }
+  }
+
   const updates: Partial<typeof usersTable.$inferInsert> = {};
 
   if (name !== undefined) updates.name = name;
@@ -84,7 +102,7 @@ router.put("/users/:id", authenticateToken, requireAdmin, async (req: Request, r
 
   const updated = await db.update(usersTable).set(updates).where(eq(usersTable.id, id)).returning();
   if (!updated[0]) {
-    res.status(404).json({ message: "User not found" });
+    res.status(404).json({ message: "المستخدم غير موجود" });
     return;
   }
 
@@ -92,7 +110,8 @@ router.put("/users/:id", authenticateToken, requireAdmin, async (req: Request, r
 });
 
 router.delete("/users/:id", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
-  const id = parseInt(String(req.params["id"] ?? "0"));
+  const id = parseInt(String(req.params["id"] ?? ""), 10);
+  if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
   await db.delete(usersTable).where(eq(usersTable.id, id));
   res.status(204).send();
 });
