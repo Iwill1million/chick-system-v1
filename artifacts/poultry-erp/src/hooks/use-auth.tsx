@@ -1,8 +1,12 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { setAuthTokenGetter, useGetMe, getGetMeQueryKey, type UserProfile } from "@workspace/api-client-react";
+import {
+  setAuthTokenGetter,
+  useGetMe,
+  getGetMeQueryKey,
+} from "@workspace/api-client-react";
+import type { UserProfile } from "@workspace/api-client-react";
 
-// Configure the API client to use our token
 setAuthTokenGetter(() => localStorage.getItem("poultry_erp_token"));
 
 interface AuthContextType {
@@ -17,18 +21,25 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
-  const [token, setTokenState] = useState<string | null>(localStorage.getItem("poultry_erp_token"));
+  const [token, setTokenState] = useState<string | null>(
+    localStorage.getItem("poultry_erp_token")
+  );
 
-  const { data: user, isLoading: isUserLoading, error } = useGetMe({
+  const {
+    data: user,
+    isLoading: isUserLoading,
+    error,
+  } = useGetMe({
     query: {
+      queryKey: getGetMeQueryKey(),
       enabled: !!token,
       retry: false,
-    }
+    },
   });
 
   useEffect(() => {
     if (error) {
-      logout();
+      doLogout();
     }
   }, [error]);
 
@@ -38,12 +49,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
   };
 
-  const logout = () => {
+  const doLogout = () => {
     localStorage.removeItem("poultry_erp_token");
     setTokenState(null);
     queryClient.clear();
     window.location.href = "/";
   };
+
+  const logout = doLogout;
 
   const isLoading = isUserLoading && !!token;
 

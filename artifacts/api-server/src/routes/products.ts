@@ -2,7 +2,7 @@ import { Router, type IRouter, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { productsTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
-import { authenticateToken } from "../middlewares/auth";
+import { authenticateToken, requireAdmin } from "../middlewares/auth";
 import { CreateProductBody } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -24,7 +24,7 @@ router.get("/products", authenticateToken, async (_req: Request, res: Response) 
   res.json(products.map(formatProduct));
 });
 
-router.post("/products", authenticateToken, async (req: Request, res: Response) => {
+router.post("/products", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
   const body = CreateProductBody.safeParse(req.body);
   if (!body.success) {
     res.status(400).json({ message: "Invalid request" });
@@ -52,7 +52,7 @@ router.get("/products/:id", authenticateToken, async (req: Request, res: Respons
   res.json(formatProduct(products[0]));
 });
 
-router.put("/products/:id", authenticateToken, async (req: Request, res: Response) => {
+router.put("/products/:id", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
   const id = parseInt(req.params["id"] ?? "0");
   const body = CreateProductBody.safeParse(req.body);
   if (!body.success) {
@@ -76,7 +76,7 @@ router.put("/products/:id", authenticateToken, async (req: Request, res: Respons
   res.json(formatProduct(updated[0]));
 });
 
-router.delete("/products/:id", authenticateToken, async (req: Request, res: Response) => {
+router.delete("/products/:id", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
   const id = parseInt(req.params["id"] ?? "0");
   await db.delete(productsTable).where(eq(productsTable.id, id));
   res.status(204).send();

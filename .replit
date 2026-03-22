@@ -24,3 +24,8 @@ expertMode = true
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
+
+[userenv]
+
+[userenv.shared]
+JWT_SECRET = "poultry-erp-secret-key-2024-secure"

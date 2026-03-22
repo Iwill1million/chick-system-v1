@@ -31,8 +31,23 @@ router.post("/delivery-logs", authenticateToken, async (req: Request, res: Respo
     return;
   }
 
+  const orderId = body.data.orderId;
+
+  const orders = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
+  if (!orders[0]) {
+    res.status(404).json({ message: "Order not found" });
+    return;
+  }
+
+  const order = orders[0];
+
+  if (authReq.user.role !== "admin" && order.agentId !== authReq.user.userId) {
+    res.status(403).json({ message: "You are not authorized to log delivery for this order" });
+    return;
+  }
+
   const inserted = await db.insert(deliveryLogsTable).values({
-    orderId: body.data.orderId,
+    orderId,
     agentId: authReq.user.userId,
     collectedAmount: body.data.collectedAmount,
     deliveredQuantity: body.data.deliveredQuantity,
@@ -46,8 +61,8 @@ router.post("/delivery-logs", authenticateToken, async (req: Request, res: Respo
     await db.insert(notificationsTable).values(
       admins.map(admin => ({
         userId: admin.id,
-        message: `المندوب سجّل تفاصيل توصيل الطلب #${body.data.orderId}`,
-        orderId: body.data.orderId,
+        message: `المندوب سجّل تفاصيل توصيل الطلب #${orderId}`,
+        orderId,
         isRead: false,
       }))
     );
@@ -57,7 +72,17 @@ router.post("/delivery-logs", authenticateToken, async (req: Request, res: Respo
 });
 
 router.get("/delivery-logs/:orderId", authenticateToken, async (req: Request, res: Response) => {
+  const authReq = req as AuthRequest;
   const orderId = parseInt(req.params["orderId"] ?? "0");
+
+  if (authReq.user.role !== "admin") {
+    const orders = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
+    if (!orders[0] || orders[0].agentId !== authReq.user.userId) {
+      res.status(403).json({ message: "Access denied" });
+      return;
+    }
+  }
+
   const logs = await db.select().from(deliveryLogsTable).where(eq(deliveryLogsTable.orderId, orderId));
   res.json(logs.map(formatLog));
 });

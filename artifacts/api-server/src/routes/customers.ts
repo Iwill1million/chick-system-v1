@@ -2,7 +2,7 @@ import { Router, type IRouter, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { customersTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
-import { authenticateToken } from "../middlewares/auth";
+import { authenticateToken, requireAdmin } from "../middlewares/auth";
 import { CreateCustomerBody } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -24,7 +24,7 @@ router.get("/customers", authenticateToken, async (_req: Request, res: Response)
   res.json(customers.map(formatCustomer));
 });
 
-router.post("/customers", authenticateToken, async (req: Request, res: Response) => {
+router.post("/customers", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
   const body = CreateCustomerBody.safeParse(req.body);
   if (!body.success) {
     res.status(400).json({ message: "Invalid request" });
@@ -52,7 +52,7 @@ router.get("/customers/:id", authenticateToken, async (req: Request, res: Respon
   res.json(formatCustomer(customers[0]));
 });
 
-router.put("/customers/:id", authenticateToken, async (req: Request, res: Response) => {
+router.put("/customers/:id", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
   const id = parseInt(req.params["id"] ?? "0");
   const body = CreateCustomerBody.safeParse(req.body);
   if (!body.success) {
@@ -76,7 +76,7 @@ router.put("/customers/:id", authenticateToken, async (req: Request, res: Respon
   res.json(formatCustomer(updated[0]));
 });
 
-router.delete("/customers/:id", authenticateToken, async (req: Request, res: Response) => {
+router.delete("/customers/:id", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
   const id = parseInt(req.params["id"] ?? "0");
   await db.delete(customersTable).where(eq(customersTable.id, id));
   res.status(204).send();

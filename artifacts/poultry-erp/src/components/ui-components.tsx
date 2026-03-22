@@ -187,9 +187,9 @@ export function Table({ children, className }: { children: React.ReactNode, clas
     </div>
   );
 }
-export function Th({ children, className }: { children: React.ReactNode, className?: string }) {
-  return <th className={cn("px-6 py-4 font-bold text-muted-foreground bg-secondary/30 border-b border-border", className)}>{children}</th>;
+export function Th({ children, className, ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) {
+  return <th className={cn("px-6 py-4 font-bold text-muted-foreground bg-secondary/30 border-b border-border", className)} {...props}>{children}</th>;
 }
-export function Td({ children, className }: { children: React.ReactNode, className?: string }) {
-  return <td className={cn("px-6 py-4 border-b border-border/50", className)}>{children}</td>;
+export function Td({ children, className, ...props }: React.TdHTMLAttributes<HTMLTableCellElement>) {
+  return <td className={cn("px-6 py-4 border-b border-border/50", className)} {...props}>{children}</td>;
 }

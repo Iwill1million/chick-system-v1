@@ -1,10 +1,23 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { useListNotifications, useMarkNotificationsRead } from "@workspace/api-client-react";
+import {
+  useListNotifications,
+  useMarkNotificationsRead,
+  getListNotificationsQueryKey,
+} from "@workspace/api-client-react";
+import type { NotificationItem } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { 
-  LayoutDashboard, Users, Package, ShoppingCart, Truck, 
-  LogOut, Bell, Menu, X, ChevronDown, CheckCheck
+import {
+  LayoutDashboard,
+  Users,
+  Package,
+  ShoppingCart,
+  Truck,
+  LogOut,
+  Bell,
+  Menu,
+  X,
+  CheckCheck,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn, formatDate } from "@/lib/utils";
@@ -19,16 +32,20 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
 
   const { data: notifications = [] } = useListNotifications({
-    query: { refetchInterval: 30000 } // Poll every 30s
-  });
-  
-  const { mutate: markRead } = useMarkNotificationsRead({
-    mutation: {
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notifications"] })
-    }
+    query: {
+      queryKey: getListNotificationsQueryKey(),
+      refetchInterval: 30000,
+    },
   });
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  const { mutate: markRead } = useMarkNotificationsRead({
+    mutation: {
+      onSuccess: () =>
+        queryClient.invalidateQueries({ queryKey: getListNotificationsQueryKey() }),
+    },
+  });
+
+  const unreadCount = notifications.filter((n: NotificationItem) => !n.isRead).length;
 
   const adminLinks = [
     { href: "/dashboard", label: "لوحة التحكم", icon: LayoutDashboard },
@@ -38,13 +55,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     { href: "/agents", label: "المندوبون", icon: Truck },
   ];
 
-  const agentLinks = [
-    { href: "/agent/orders", label: "طلباتي", icon: Truck },
-  ];
+  const agentLinks = [{ href: "/agent/orders", label: "طلباتي", icon: Truck }];
 
   const links = user?.role === "admin" ? adminLinks : agentLinks;
 
-  // Close mobile menu on navigate
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [location]);
@@ -54,16 +68,22 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Mobile Header */}
       <header className="md:hidden flex items-center justify-between p-4 bg-card border-b border-border z-30 relative">
         <div className="flex items-center gap-3">
-          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 -mr-2 text-foreground">
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="p-2 -mr-2 text-foreground"
+          >
             {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
           <span className="font-display font-bold text-xl text-primary">نظام الدواجن</span>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setIsNotifOpen(!isNotifOpen)} className="relative p-2 text-foreground">
+          <button
+            onClick={() => setIsNotifOpen(!isNotifOpen)}
+            className="relative p-2 text-foreground"
+          >
             <Bell className="w-6 h-6" />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 w-3 h-3 bg-destructive rounded-full border-2 border-card"></span>
+              <span className="absolute top-1 right-1 w-3 h-3 bg-destructive rounded-full border-2 border-card" />
             )}
           </button>
         </div>
@@ -71,73 +91,45 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* Sidebar (Desktop + Mobile overlay) */}
       <AnimatePresence>
-        {(isMobileMenuOpen || typeof window !== 'undefined' && window.innerWidth >= 768) && (
+        {isMobileMenuOpen && (
           <motion.aside
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", bounce: 0, duration: 0.3 }}
-            className={cn(
-              "fixed inset-y-0 right-0 z-40 w-72 bg-card border-l border-border flex flex-col",
-              "md:relative md:translate-x-0"
-            )}
+            className="fixed inset-y-0 right-0 z-40 w-72 bg-card border-l border-border flex flex-col md:hidden"
           >
-            <div className="p-6 hidden md:block">
-              <span className="font-display font-extrabold text-2xl text-transparent bg-clip-text bg-gradient-to-l from-primary to-emerald-500">نظام الدواجن</span>
-            </div>
-
-            <div className="p-6 md:pt-0 pb-4 border-b border-border/50">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
-                  {user?.name.charAt(0)}
-                </div>
-                <div>
-                  <p className="font-bold text-foreground">{user?.name}</p>
-                  <p className="text-sm text-muted-foreground">{user?.role === 'admin' ? 'مدير النظام' : 'مندوب توصيل'}</p>
-                </div>
-              </div>
-            </div>
-
-            <nav className="flex-1 overflow-y-auto p-4 flex flex-col gap-2">
-              {links.map((link) => {
-                const isActive = location.startsWith(link.href);
-                return (
-                  <Link key={link.href} href={link.href} className={cn(
-                    "flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all duration-200",
-                    isActive 
-                      ? "bg-primary text-primary-foreground shadow-md shadow-primary/20" 
-                      : "text-foreground hover:bg-secondary hover:text-primary"
-                  )}>
-                    <link.icon className={cn("w-5 h-5", isActive ? "text-primary-foreground/90" : "text-muted-foreground")} />
-                    {link.label}
-                  </Link>
-                );
-              })}
-            </nav>
-
-            <div className="p-4 border-t border-border/50">
-              <button 
-                onClick={logout}
-                className="flex items-center gap-3 px-4 py-3 w-full rounded-xl font-semibold text-destructive hover:bg-destructive/10 transition-colors"
-              >
-                <LogOut className="w-5 h-5" />
-                تسجيل الخروج
-              </button>
-            </div>
+            <SidebarContent
+              user={user}
+              links={links}
+              location={location}
+              logout={logout}
+              onClose={() => setIsMobileMenuOpen(false)}
+            />
           </motion.aside>
         )}
       </AnimatePresence>
+
+      {/* Desktop Sidebar - always visible */}
+      <aside className="hidden md:flex w-72 bg-card border-l border-border flex-col flex-shrink-0">
+        <SidebarContent
+          user={user}
+          links={links}
+          location={location}
+          logout={logout}
+        />
+      </aside>
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative z-0">
         {/* Desktop Header */}
         <header className="hidden md:flex items-center justify-between px-8 py-5 bg-card/50 backdrop-blur-md border-b border-border/50 sticky top-0 z-20">
           <h1 className="text-2xl font-display font-bold text-foreground">
-            {links.find(l => location.startsWith(l.href))?.label || "نظام الدواجن"}
+            {links.find((l) => location.startsWith(l.href))?.label || "نظام الدواجن"}
           </h1>
-          
+
           <div className="relative">
-            <button 
+            <button
               onClick={() => setIsNotifOpen(!isNotifOpen)}
               className="p-2.5 rounded-full bg-secondary text-foreground hover:bg-primary/10 hover:text-primary transition-colors relative"
             >
@@ -149,7 +141,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               )}
             </button>
 
-            {/* Notifications Dropdown */}
             <AnimatePresence>
               {isNotifOpen && (
                 <motion.div
@@ -161,8 +152,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   <div className="p-4 border-b border-border flex justify-between items-center bg-secondary/30">
                     <h3 className="font-bold">الإشعارات</h3>
                     {unreadCount > 0 && (
-                      <button 
-                        onClick={() => markRead({ all: true })}
+                      <button
+                        onClick={() => markRead({ data: { all: true } })}
                         className="text-xs text-primary hover:underline flex items-center gap-1"
                       >
                         <CheckCheck className="w-3 h-3" /> تعيين كـ مقروء
@@ -176,19 +167,24 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       </div>
                     ) : (
                       <div className="flex flex-col">
-                        {notifications.map(n => (
-                          <div 
-                            key={n.id} 
+                        {notifications.map((n: NotificationItem) => (
+                          <div
+                            key={n.id}
                             className={cn(
-                              "p-4 border-b border-border/50 last:border-0 transition-colors hover:bg-secondary/30",
+                              "p-4 border-b border-border/50 last:border-0 transition-colors hover:bg-secondary/30 cursor-pointer",
                               !n.isRead && "bg-primary/5"
                             )}
                             onClick={() => {
-                              if (!n.isRead) markRead({ ids: [n.id] });
+                              if (!n.isRead) markRead({ data: { ids: [n.id] } });
                             }}
                           >
                             <p className="text-sm text-foreground">{n.message}</p>
-                            <p className="text-xs text-muted-foreground mt-1 text-left" dir="ltr">{formatDate(n.createdAt)}</p>
+                            <p
+                              className="text-xs text-muted-foreground mt-1 text-left"
+                              dir="ltr"
+                            >
+                              {formatDate(n.createdAt)}
+                            </p>
                           </div>
                         ))}
                       </div>
@@ -201,10 +197,85 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Page Content */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-background">
-          {children}
-        </div>
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-background">{children}</div>
       </main>
     </div>
+  );
+}
+
+interface NavLink {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+interface SidebarContentProps {
+  user: { name: string; role: string } | null;
+  links: NavLink[];
+  location: string;
+  logout: () => void;
+  onClose?: () => void;
+}
+
+function SidebarContent({ user, links, location, logout, onClose }: SidebarContentProps) {
+  return (
+    <>
+      <div className="p-6">
+        <span className="font-display font-extrabold text-2xl text-transparent bg-clip-text bg-gradient-to-l from-primary to-emerald-500">
+          نظام الدواجن
+        </span>
+      </div>
+
+      <div className="p-6 pt-0 pb-4 border-b border-border/50">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
+            {user?.name.charAt(0)}
+          </div>
+          <div>
+            <p className="font-bold text-foreground">{user?.name}</p>
+            <p className="text-sm text-muted-foreground">
+              {user?.role === "admin" ? "مدير النظام" : "مندوب توصيل"}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <nav className="flex-1 overflow-y-auto p-4 flex flex-col gap-2">
+        {links.map((link) => {
+          const isActive = location.startsWith(link.href);
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              onClick={onClose}
+              className={cn(
+                "flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all duration-200",
+                isActive
+                  ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                  : "text-foreground hover:bg-secondary hover:text-primary"
+              )}
+            >
+              <link.icon
+                className={cn(
+                  "w-5 h-5",
+                  isActive ? "text-primary-foreground/90" : "text-muted-foreground"
+                )}
+              />
+              {link.label}
+            </Link>
+          );
+        })}
+      </nav>
+
+      <div className="p-4 border-t border-border/50">
+        <button
+          onClick={logout}
+          className="flex items-center gap-3 px-4 py-3 w-full rounded-xl font-semibold text-destructive hover:bg-destructive/10 transition-colors"
+        >
+          <LogOut className="w-5 h-5" />
+          تسجيل الخروج
+        </button>
+      </div>
+    </>
   );
 }

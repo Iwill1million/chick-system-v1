@@ -1,7 +1,13 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET ?? "poultry-erp-secret-key-2024";
+function getJwtSecret(): string {
+  const secret = process.env["JWT_SECRET"];
+  if (!secret) {
+    throw new Error("JWT_SECRET environment variable is required but not set");
+  }
+  return secret;
+}
 
 export interface AuthPayload {
   userId: number;
@@ -19,7 +25,7 @@ export function authenticateToken(req: Request, res: Response, next: NextFunctio
   }
 
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as AuthPayload;
+    const payload = jwt.verify(token, getJwtSecret()) as AuthPayload;
     (req as Request & { user: AuthPayload }).user = payload;
     next();
   } catch {
@@ -37,5 +43,5 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
 }
 
 export function signToken(payload: AuthPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: "7d" });
 }
