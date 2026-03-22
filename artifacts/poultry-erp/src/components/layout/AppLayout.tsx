@@ -19,6 +19,7 @@ import {
   X,
   CheckCheck,
   Settings,
+  BarChart2,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn, formatDate } from "@/lib/utils";
@@ -54,6 +55,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     { href: "/customers", label: "العملاء", icon: Users },
     { href: "/products", label: "المنتجات", icon: Package },
     { href: "/agents", label: "المندوبون", icon: Truck },
+    { href: "/agents/report", label: "تقرير المندوبين", icon: BarChart2 },
     { href: "/settings", label: "إعدادات الشركة", icon: Settings },
   ];
 
@@ -190,7 +192,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         {/* Desktop Header */}
         <header className="hidden md:flex items-center justify-between px-8 py-5 bg-card/50 backdrop-blur-md border-b border-border/50 sticky top-0 z-20">
           <h1 className="text-2xl font-display font-bold text-foreground">
-            {links.find((l) => location.startsWith(l.href))?.label || "نظام الدواجن"}
+            {links.slice().reverse().find((l) => location.startsWith(l.href))?.label || "نظام الدواجن"}
           </h1>
 
           <div className="relative">
@@ -307,7 +309,9 @@ function SidebarContent({ user, links, location, logout, onClose }: SidebarConte
 
       <nav className="flex-1 overflow-y-auto p-4 flex flex-col gap-2">
         {links.map((link) => {
-          const isActive = location.startsWith(link.href);
+          const isActive = link.href === "/agents"
+            ? location === "/agents" || location.startsWith("/agents/") && !location.startsWith("/agents/report")
+            : location.startsWith(link.href);
           return (
             <Link
               key={link.href}

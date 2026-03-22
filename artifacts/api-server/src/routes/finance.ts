@@ -151,4 +151,45 @@ router.get("/finance/summary", authenticateToken, requireAdmin, async (req: Requ
   });
 });
 
+router.get("/finance/agent-report", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
+  const { from, to } = req.query;
+  const fromStr = typeof from === "string" ? from : undefined;
+  const toStr = typeof to === "string" ? to : undefined;
+
+  const dateConditions: SQL[] = [eq(ordersTable.status, "delivered")];
+  if (fromStr) dateConditions.push(gte(ordersTable.orderDate, fromStr));
+  if (toStr) dateConditions.push(lte(ordersTable.orderDate, toStr));
+
+  const [deliveredOrders, allAgents] = await Promise.all([
+    db.select().from(ordersTable).where(and(...dateConditions)),
+    db.select().from(usersTable).where(eq(usersTable.role, "agent")),
+  ]);
+
+  const orderIds = deliveredOrders.map(o => o.id);
+
+  const logs = orderIds.length > 0
+    ? await db.select().from(deliveryLogsTable).where(inArray(deliveryLogsTable.orderId, orderIds))
+    : [];
+
+  const agentReport = allAgents.map(agent => {
+    const agentOrders = deliveredOrders.filter(o => o.agentId === agent.id);
+    const agentLogs = logs.filter(l => l.agentId === agent.id);
+    const totalCollected = agentLogs.reduce((s, l) => s + parseFloat(l.collectedAmount), 0);
+    const totalFuelExpense = agentLogs.reduce((s, l) => s + parseFloat(l.fuelExpense), 0);
+    const totalOtherExpenses = agentLogs.reduce((s, l) => s + parseFloat(l.otherExpenses), 0);
+    const netAmount = totalCollected - totalFuelExpense - totalOtherExpenses;
+    return {
+      agentId: agent.id,
+      agentName: agent.name,
+      ordersCompleted: agentOrders.length,
+      totalCollected: totalCollected.toFixed(2),
+      totalFuelExpense: totalFuelExpense.toFixed(2),
+      totalOtherExpenses: totalOtherExpenses.toFixed(2),
+      netAmount: netAmount.toFixed(2),
+    };
+  });
+
+  res.json(agentReport);
+});
+
 export default router;
