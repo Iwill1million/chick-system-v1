@@ -57,6 +57,11 @@ router.post("/customers/:id/payments", authenticateToken, requireAdmin, async (r
   const amountNum = parseFloat(String(amount));
   if (isNaN(amountNum) || amountNum <= 0) { res.status(400).json({ message: "المبلغ يجب أن يكون أكبر من صفر" }); return; }
 
+  const dateStr = String(paymentDate);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr) || isNaN(Date.parse(dateStr))) {
+    res.status(400).json({ message: "صيغة التاريخ غير صحيحة (YYYY-MM-DD)" }); return;
+  }
+
   const customers = await db.select().from(customersTable).where(eq(customersTable.id, customerId));
   if (!customers[0]) { res.status(404).json({ message: "العميل غير موجود" }); return; }
 

@@ -59,7 +59,7 @@ router.get("/finance/summary", authenticateToken, requireAdmin, async (req: Requ
   let totalReceivables = 0;
   for (const c of allCustomersForReceivables) {
     const balance = parseFloat(c.openingBalance as string) + (customerOrderDebits.get(c.id) ?? 0) - (customerPaymentTotals.get(c.id) ?? 0);
-    totalReceivables += balance;
+    if (balance > 0) totalReceivables += balance;
   }
 
   if (orderIds.length === 0) {
