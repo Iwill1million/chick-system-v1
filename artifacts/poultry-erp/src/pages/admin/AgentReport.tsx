@@ -200,12 +200,12 @@ export default function AgentReport() {
         </Card>
       ) : (
         <>
-          {/* Agent Cards – mobile */}
+          {/* Agent Cards – all screen sizes */}
           <motion.div
             variants={containerVariants}
             initial="hidden"
             animate="show"
-            className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:hidden print:hidden"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 print:hidden"
           >
             {agents.map((agent) => (
               <motion.div
@@ -248,8 +248,8 @@ export default function AgentReport() {
             ))}
           </motion.div>
 
-          {/* Table – desktop + print */}
-          <Card className="hidden md:block overflow-hidden print:block print:shadow-none print:border">
+          {/* Table – desktop summary (for print + larger screens) */}
+          <Card className="overflow-hidden print:shadow-none print:border">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
