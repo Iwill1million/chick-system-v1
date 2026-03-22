@@ -7,8 +7,10 @@ import {
   orderItemsTable,
   usersTable,
 } from "@workspace/db/schema";
-import { eq, desc, inArray } from "drizzle-orm";
-import { authenticateToken, requireAdmin } from "../middlewares/auth";
+import { eq, desc, inArray, and } from "drizzle-orm";
+import { authenticateToken, requireAdmin, type AuthPayload } from "../middlewares/auth";
+
+type AuthRequest = Request & { user: AuthPayload };
 
 const router: IRouter = Router();
 
@@ -45,7 +47,7 @@ router.get("/customers/:id/payments", authenticateToken, requireAdmin, async (re
   })));
 });
 
-router.post("/customers/:id/payments", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
+router.post("/customers/:id/payments", authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
   const customerId = parseInt(String(req.params["id"] ?? ""), 10);
   if (!customerId || isNaN(customerId)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
 
@@ -58,7 +60,7 @@ router.post("/customers/:id/payments", authenticateToken, requireAdmin, async (r
   const customers = await db.select().from(customersTable).where(eq(customersTable.id, customerId));
   if (!customers[0]) { res.status(404).json({ message: "العميل غير موجود" }); return; }
 
-  const userId = (req as any).user?.userId;
+  const userId = req.user.userId;
   const inserted = await db.insert(customerPaymentsTable).values({
     customerId,
     amount: amountNum.toFixed(2),
@@ -83,8 +85,12 @@ router.delete("/customers/:id/payments/:paymentId", authenticateToken, requireAd
   if (!customerId || isNaN(customerId) || !paymentId || isNaN(paymentId)) {
     res.status(400).json({ message: "معرف غير صالح" }); return;
   }
-  await db.delete(customerPaymentsTable)
-    .where(eq(customerPaymentsTable.id, paymentId));
+  const deleted = await db.delete(customerPaymentsTable)
+    .where(and(eq(customerPaymentsTable.id, paymentId), eq(customerPaymentsTable.customerId, customerId)))
+    .returning({ id: customerPaymentsTable.id });
+  if (deleted.length === 0) {
+    res.status(404).json({ message: "الدفعة غير موجودة" }); return;
+  }
   res.status(204).send();
 });
 
@@ -150,8 +156,8 @@ router.get("/customers/:id/statement", authenticateToken, requireAdmin, async (r
   transactions.sort((a, b) => {
     if (a.date < b.date) return -1;
     if (a.date > b.date) return 1;
-    if (a.type === "order" && b.type !== "order") return -1;
-    return 1;
+    if (a.type === b.type) return a.id - b.id;
+    return a.type === "order" ? -1 : 1;
   });
 
   let runningBalance = parseFloat(customer.openingBalance as string);

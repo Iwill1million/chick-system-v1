@@ -197,7 +197,7 @@ export default function Dashboard() {
         />
         <StatCard
           title="إجمالي المستحقات"
-          value={formatCurrency((summary as any).totalReceivables ?? "0")}
+          value={formatCurrency(summary.totalReceivables)}
           icon={CreditCard}
         />
       </div>

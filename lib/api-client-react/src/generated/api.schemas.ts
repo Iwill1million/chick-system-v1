@@ -283,6 +283,7 @@ export interface FinanceSummary {
   deliveredOrders: number;
   totalRevenue: string;
   totalCollected: string;
+  totalReceivables: string;
   ordersByStatus: StatusCount[];
   agentPerformance: AgentPerformance[];
   customerBalances: CustomerBalance[];

@@ -1094,6 +1094,8 @@ components:
           type: string
         totalCollected:
           type: string
+        totalReceivables:
+          type: string
         ordersByStatus:
           type: array
           items:
@@ -1115,6 +1117,7 @@ components:
         - deliveredOrders
         - totalRevenue
         - totalCollected
+        - totalReceivables
         - ordersByStatus
         - agentPerformance
         - customerBalances
