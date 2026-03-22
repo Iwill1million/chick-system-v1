@@ -3,7 +3,7 @@ import { useListOrders, useGetMe } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import { Card, Badge } from "@/components/ui-components";
 import { formatCurrency, formatDate, statusColors, statusLabels } from "@/lib/utils";
-import { MapPin, Phone, Clock, ChevronLeft, PackageCheck, Loader2, TriangleAlert, Banknote } from "lucide-react";
+import { MapPin, Phone, Clock, ChevronLeft, PackageCheck, Loader2, Banknote } from "lucide-react";
 import { motion } from "framer-motion";
 
 function orderTotal(order: { items: { quantity: number; unitPrice: string }[] }) {
@@ -26,15 +26,12 @@ export default function MyOrders() {
   const todayStr = new Date().toDateString();
   const todayOrders = orders.filter((o) => new Date(o.orderDate).toDateString() === todayStr);
 
-  const useAll = todayOrders.length === 0;
-  const statsOrders = useAll ? orders : todayOrders;
-
-  const totalCount = statsOrders.length;
-  const completedCount = statsOrders.filter((o) => o.status === "delivered").length;
-  const remainingCount = statsOrders.filter(
+  const totalCount = todayOrders.length;
+  const completedCount = todayOrders.filter((o) => o.status === "delivered").length;
+  const remainingCount = todayOrders.filter(
     (o) => !["delivered", "cancelled"].includes(o.status)
   ).length;
-  const collectedAmount = statsOrders
+  const collectedAmount = todayOrders
     .filter((o) => o.status === "delivered")
     .reduce((sum, o) => sum + orderTotal(o), 0);
 
@@ -78,18 +75,10 @@ export default function MyOrders() {
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-display font-bold">المهام اليومية</h2>
-        {useAll && orders.length > 0 && (
-          <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded-full">
-            إجمالي الطلبات
-          </span>
-        )}
-      </div>
+      <h2 className="text-2xl font-display font-bold">المهام اليومية</h2>
 
       {/* Stats Summary */}
-      {orders.length > 0 && (
-        <motion.div
+      <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
@@ -136,8 +125,7 @@ export default function MyOrders() {
               {completedCount} من {totalCount} طلب{totalCount !== 1 ? "اً" : ""} مكتمل
             </p>
           </Card>
-        </motion.div>
-      )}
+      </motion.div>
 
       {/* Tabs */}
       <div className="flex overflow-x-auto pb-2 gap-2 hide-scrollbar">
