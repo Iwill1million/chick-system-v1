@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { Button, Card } from "@/components/ui-components";
 import { customFetch } from "@workspace/api-client-react";
 import {
@@ -14,8 +14,8 @@ import {
   Loader2,
   MessageCircle,
   Wifi,
-  Eye,
-  EyeOff,
+  ShieldCheck,
+  WifiOff,
 } from "lucide-react";
 
 interface AdminSettings {
@@ -24,9 +24,9 @@ interface AdminSettings {
   phone: string;
   commercialRegNo: string;
   logoUrl: string;
-  twilioAccountSid: string;
-  twilioAuthToken: string;
   twilioWhatsappFrom: string;
+  twilioSidConfigured: boolean;
+  twilioTokenConfigured: boolean;
   twilioConfigured: boolean;
 }
 
@@ -37,24 +37,16 @@ interface PingResult {
   error?: string;
 }
 
-const PLACEHOLDER_TOKEN = "***configured***";
-
-async function fetchAdminSettings(): Promise<AdminSettings> {
-  return customFetch<AdminSettings>("/api/settings/admin", { method: "GET" });
-}
-
 export default function Settings() {
-  const queryClient = useQueryClient();
-
   const [form, setForm] = useState<AdminSettings>({
     name: "",
     address: "",
     phone: "",
     commercialRegNo: "",
     logoUrl: "",
-    twilioAccountSid: "",
-    twilioAuthToken: "",
     twilioWhatsappFrom: "",
+    twilioSidConfigured: false,
+    twilioTokenConfigured: false,
     twilioConfigured: false,
   });
   const [isLoading, setIsLoading] = useState(true);
@@ -63,12 +55,11 @@ export default function Settings() {
   const [error, setError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [showToken, setShowToken] = useState(false);
   const [pingResult, setPingResult] = useState<PingResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetchAdminSettings()
+    customFetch<AdminSettings>("/api/settings/admin")
       .then((data) => {
         setForm(data);
         setIsLoading(false);
@@ -97,11 +88,7 @@ export default function Settings() {
     if (!metaRes.ok) throw new Error("فشل الحصول على رابط الرفع");
     const { uploadURL, objectPath } = await metaRes.json() as { uploadURL: string; objectPath: string };
 
-    const uploadRes = await fetch(uploadURL, {
-      method: "PUT",
-      body: file,
-      headers: { "Content-Type": file.type || "image/png" },
-    });
+    const uploadRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type || "image/png" } });
     if (!uploadRes.ok) throw new Error("فشل رفع الملف إلى التخزين");
 
     const completeRes = await fetch("/api/storage/uploads/complete", {
@@ -147,8 +134,6 @@ export default function Settings() {
         phone: form.phone,
         commercialRegNo: form.commercialRegNo,
         logoUrl: form.logoUrl,
-        twilioAccountSid: form.twilioAccountSid,
-        twilioAuthToken: form.twilioAuthToken,
         twilioWhatsappFrom: form.twilioWhatsappFrom,
       };
       const updated = await customFetch<AdminSettings>("/api/settings", {
@@ -159,7 +144,6 @@ export default function Settings() {
       setForm(updated);
       setSaved(true);
       setPingResult(null);
-      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp/config-status"] });
       setTimeout(() => setSaved(false), 3000);
     } catch {
       setError("حدث خطأ أثناء الحفظ، يرجى المحاولة مجدداً");
@@ -272,13 +256,7 @@ export default function Settings() {
               <span className="text-xs text-muted-foreground">PNG أو SVG موصى به</span>
             </div>
 
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleLogoFileChange}
-            />
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoFileChange} />
 
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground">أو أدخل رابط الشعار مباشرةً</label>
@@ -319,85 +297,66 @@ export default function Settings() {
             )}
           </div>
 
-          <p className="text-xs text-muted-foreground">
-            أدخل بيانات حساب Twilio الخاص بك لتفعيل إرسال إشعارات واتساب للعملاء.
-            البيانات تُحفظ بشكل آمن في قاعدة البيانات.
-          </p>
-
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-foreground">Account SID</label>
-              <input
-                type="text"
-                className="w-full bg-secondary/40 border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 font-mono"
-                placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                dir="ltr"
-                value={form.twilioAccountSid === PLACEHOLDER_TOKEN ? "" : form.twilioAccountSid}
-                onChange={(e) => handleChange("twilioAccountSid", e.target.value)}
-              />
-              {form.twilioAccountSid === PLACEHOLDER_TOKEN && (
-                <p className="text-xs text-emerald-600">✓ مضبوط — اتركه فارغاً للإبقاء على القيمة الحالية</p>
-              )}
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-foreground">Auth Token</label>
-              <div className="relative">
-                <input
-                  type={showToken ? "text" : "password"}
-                  className="w-full bg-secondary/40 border border-border rounded-xl px-4 py-3 pl-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 font-mono"
-                  placeholder="Auth Token السري"
-                  dir="ltr"
-                  value={form.twilioAuthToken === PLACEHOLDER_TOKEN ? "" : form.twilioAuthToken}
-                  onChange={(e) => handleChange("twilioAuthToken", e.target.value)}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowToken(!showToken)}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
+          {/* SID and Token status — read only, configured via env vars */}
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground font-medium">بيانات حساب Twilio (تُضبط كمتغيرات بيئة للأمان):</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className={`flex items-center gap-2 p-3 rounded-xl border text-sm ${form.twilioSidConfigured ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-red-50 border-red-200 text-red-700"}`}>
+                {form.twilioSidConfigured ? <ShieldCheck className="w-4 h-4 shrink-0" /> : <WifiOff className="w-4 h-4 shrink-0" />}
+                <div>
+                  <p className="font-medium text-xs">TWILIO_ACCOUNT_SID</p>
+                  <p className="text-xs opacity-70">{form.twilioSidConfigured ? "مضبوط ✓" : "غير مضبوط"}</p>
+                </div>
               </div>
-              {form.twilioAuthToken === PLACEHOLDER_TOKEN && (
-                <p className="text-xs text-emerald-600">✓ مضبوط — اتركه فارغاً للإبقاء على القيمة الحالية</p>
-              )}
+              <div className={`flex items-center gap-2 p-3 rounded-xl border text-sm ${form.twilioTokenConfigured ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-red-50 border-red-200 text-red-700"}`}>
+                {form.twilioTokenConfigured ? <ShieldCheck className="w-4 h-4 shrink-0" /> : <WifiOff className="w-4 h-4 shrink-0" />}
+                <div>
+                  <p className="font-medium text-xs">TWILIO_AUTH_TOKEN</p>
+                  <p className="text-xs opacity-70">{form.twilioTokenConfigured ? "مضبوط ✓" : "غير مضبوط"}</p>
+                </div>
+              </div>
             </div>
+            {(!form.twilioSidConfigured || !form.twilioTokenConfigured) && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs">
+                أضف <span className="font-mono">TWILIO_ACCOUNT_SID</span> و <span className="font-mono">TWILIO_AUTH_TOKEN</span> كـ Secrets في لوحة تحكم المشروع لتفعيل واتساب.
+              </div>
+            )}
+          </div>
 
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-foreground">رقم واتساب المرسِل</label>
-              <input
-                type="text"
-                className="w-full bg-secondary/40 border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 font-mono"
-                placeholder="+14155238886 أو whatsapp:+14155238886"
-                dir="ltr"
-                value={form.twilioWhatsappFrom}
-                onChange={(e) => handleChange("twilioWhatsappFrom", e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">رقم الـ Sandbox في Twilio مثلاً: +14155238886</p>
-            </div>
+          {/* From number — editable, not sensitive */}
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-foreground">رقم واتساب المرسِل</label>
+            <input
+              type="text"
+              className="w-full bg-secondary/40 border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 font-mono"
+              placeholder="+14155238886"
+              dir="ltr"
+              value={form.twilioWhatsappFrom}
+              onChange={(e) => handleChange("twilioWhatsappFrom", e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">رقم الـ Sandbox أو رقمك المعتمد في Twilio WhatsApp</p>
+          </div>
 
-            {/* Test Ping */}
-            <div className="flex items-center gap-3 pt-1">
-              <button
-                type="button"
-                onClick={() => { setPingResult(null); pingMut.mutate(); }}
-                disabled={pingMut.isPending || !form.twilioConfigured}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-green-400 bg-green-50 hover:bg-green-100 text-green-800 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {pingMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wifi className="w-4 h-4" />}
-                اختبار الاتصال
-              </button>
+          {/* Test Ping */}
+          <div className="flex items-center gap-3 pt-1">
+            <button
+              type="button"
+              onClick={() => { setPingResult(null); pingMut.mutate(); }}
+              disabled={pingMut.isPending || !form.twilioSidConfigured || !form.twilioTokenConfigured}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-green-400 bg-green-50 hover:bg-green-100 text-green-800 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {pingMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wifi className="w-4 h-4" />}
+              اختبار الاتصال
+            </button>
 
-              {pingResult && (
-                <span className={`text-sm font-medium ${pingResult.ok ? "text-emerald-600" : "text-destructive"}`}>
-                  {pingResult.ok
-                    ? `✓ متصل — ${pingResult.accountName ?? ""} (${pingResult.status ?? ""})`
-                    : `✗ ${pingResult.error ?? "فشل الاتصال"}`
-                  }
-                </span>
-              )}
-            </div>
+            {pingResult && (
+              <span className={`text-sm font-medium ${pingResult.ok ? "text-emerald-600" : "text-destructive"}`}>
+                {pingResult.ok
+                  ? `✓ متصل — ${pingResult.accountName ?? ""} (${pingResult.status ?? ""})`
+                  : `✗ ${pingResult.error ?? "فشل الاتصال"}`
+                }
+              </span>
+            )}
           </div>
         </Card>
 

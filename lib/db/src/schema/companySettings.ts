@@ -7,8 +7,6 @@ export const companySettingsTable = pgTable("company_settings", {
   phone: text("phone").notNull().default(""),
   commercialRegNo: text("commercial_reg_no").notNull().default(""),
   logoUrl: text("logo_url").notNull().default(""),
-  twilioAccountSid: text("twilio_account_sid").notNull().default(""),
-  twilioAuthToken: text("twilio_auth_token").notNull().default(""),
   twilioWhatsappFrom: text("twilio_whatsapp_from").notNull().default(""),
 });
 

@@ -16,16 +16,12 @@ import twilio from "twilio";
 const router: IRouter = Router();
 
 async function getTwilioCredentials() {
-  const rows = await db.select({
-    twilioAccountSid: companySettingsTable.twilioAccountSid,
-    twilioAuthToken: companySettingsTable.twilioAuthToken,
-    twilioWhatsappFrom: companySettingsTable.twilioWhatsappFrom,
-  }).from(companySettingsTable).where(eq(companySettingsTable.id, 1)).limit(1);
+  const sid = process.env["TWILIO_ACCOUNT_SID"] ?? "";
+  const token = process.env["TWILIO_AUTH_TOKEN"] ?? "";
 
-  const dbRow = rows[0];
-  const sid = (dbRow?.twilioAccountSid?.trim()) || process.env["TWILIO_ACCOUNT_SID"] || "";
-  const token = (dbRow?.twilioAuthToken?.trim()) || process.env["TWILIO_AUTH_TOKEN"] || "";
-  const from = (dbRow?.twilioWhatsappFrom?.trim()) || process.env["TWILIO_WHATSAPP_FROM"] || "";
+  const rows = await db.select({ twilioWhatsappFrom: companySettingsTable.twilioWhatsappFrom })
+    .from(companySettingsTable).where(eq(companySettingsTable.id, 1)).limit(1);
+  const from = (rows[0]?.twilioWhatsappFrom?.trim()) || process.env["TWILIO_WHATSAPP_FROM"] || "";
 
   return { sid, token, from };
 }

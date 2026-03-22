@@ -15,8 +15,6 @@ const DEFAULT_SETTINGS = {
   phone: "",
   commercialRegNo: "",
   logoUrl: "",
-  twilioAccountSid: "",
-  twilioAuthToken: "",
   twilioWhatsappFrom: "",
 };
 
@@ -46,16 +44,18 @@ function pickPublicFields(row: typeof DEFAULT_SETTINGS) {
 }
 
 function pickAdminFields(row: typeof DEFAULT_SETTINGS) {
+  const sid = process.env["TWILIO_ACCOUNT_SID"] ?? "";
+  const token = process.env["TWILIO_AUTH_TOKEN"] ?? "";
   return {
     name: row.name,
     address: row.address,
     phone: row.phone,
     commercialRegNo: row.commercialRegNo,
     logoUrl: row.logoUrl,
-    twilioAccountSid: row.twilioAccountSid ? "***configured***" : "",
-    twilioAuthToken: row.twilioAuthToken ? "***configured***" : "",
     twilioWhatsappFrom: row.twilioWhatsappFrom,
-    twilioConfigured: !!(row.twilioAccountSid && row.twilioAuthToken && row.twilioWhatsappFrom),
+    twilioSidConfigured: !!sid,
+    twilioTokenConfigured: !!token,
+    twilioConfigured: !!(sid && token && row.twilioWhatsappFrom),
   };
 }
 
@@ -74,7 +74,7 @@ router.put(
   authenticateToken,
   requireAdmin,
   async (req: Request, res: Response) => {
-    const { name, address, phone, commercialRegNo, logoUrl, twilioAccountSid, twilioAuthToken, twilioWhatsappFrom } = req.body ?? {};
+    const { name, address, phone, commercialRegNo, logoUrl, twilioWhatsappFrom } = req.body ?? {};
 
     await ensureSettings();
 
@@ -84,10 +84,6 @@ router.put(
     if (typeof phone === "string") updates.phone = phone.trim();
     if (typeof commercialRegNo === "string") updates.commercialRegNo = commercialRegNo.trim();
     if (typeof logoUrl === "string") updates.logoUrl = logoUrl.trim();
-    if (typeof twilioAccountSid === "string") updates.twilioAccountSid = twilioAccountSid.trim();
-    if (typeof twilioAuthToken === "string" && twilioAuthToken !== "***configured***") {
-      updates.twilioAuthToken = twilioAuthToken.trim();
-    }
     if (typeof twilioWhatsappFrom === "string") updates.twilioWhatsappFrom = twilioWhatsappFrom.trim();
 
     const updated = await db
