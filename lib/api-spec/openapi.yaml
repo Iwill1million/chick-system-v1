@@ -1356,7 +1356,24 @@ components:
       type: object
       properties:
         customer:
-          $ref: "#/components/schemas/Customer"
+          type: object
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+            phone:
+              type: string
+              nullable: true
+            location:
+              type: string
+              nullable: true
+            openingBalance:
+              type: string
+          required:
+            - id
+            - name
+            - openingBalance
         summary:
           $ref: "#/components/schemas/CustomerStatementSummary"
         transactions:
