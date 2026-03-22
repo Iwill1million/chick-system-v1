@@ -11,6 +11,7 @@ import CustomerStatement from "@/pages/admin/CustomerStatement";
 import Products from "@/pages/admin/Products";
 import Orders from "@/pages/admin/Orders";
 import Agents from "@/pages/admin/Agents";
+import Settings from "@/pages/admin/Settings";
 import MyOrders from "@/pages/agent/MyOrders";
 import OrderDetail from "@/pages/agent/OrderDetail";
 import AdminOrderDetail from "@/pages/admin/OrderDetail";
@@ -73,6 +74,9 @@ function Router() {
       </Route>
       <Route path="/agents">
         <AdminRoute component={Agents} />
+      </Route>
+      <Route path="/settings">
+        <AdminRoute component={Settings} />
       </Route>
 
       {/* Admin Order Detail */}

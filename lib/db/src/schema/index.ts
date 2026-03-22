@@ -7,3 +7,4 @@ export * from "./orderItems";
 export * from "./orderHistory";
 export * from "./deliveryLogs";
 export * from "./notifications";
+export * from "./companySettings";

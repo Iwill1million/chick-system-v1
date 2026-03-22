@@ -1,5 +1,6 @@
 import { useParams } from "wouter";
-import { useGetOrder, useGetDeliveryLogs } from "@workspace/api-client-react";
+import { useGetOrder, useGetDeliveryLogs, customFetch } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, Badge } from "@/components/ui-components";
 import { formatCurrency, formatDate, statusColors, statusLabels } from "@/lib/utils";
 import { MapPin, Phone, Calendar, Package, ArrowRight, Truck, CheckCircle2, Printer, RotateCcw } from "lucide-react";
@@ -7,12 +8,25 @@ import { Link } from "wouter";
 import PrintInvoice from "@/components/PrintInvoice";
 import OrderHistoryTimeline from "@/components/OrderHistoryTimeline";
 
+interface CompanySettings {
+  name: string;
+  address: string;
+  phone: string;
+  commercialRegNo: string;
+  logoUrl: string;
+}
+
 export default function AdminOrderDetail() {
   const { id } = useParams<{ id: string }>();
   const orderId = parseInt(id!);
 
   const { data: order, isLoading } = useGetOrder(orderId);
   const { data: logs = [] } = useGetDeliveryLogs(orderId);
+  const { data: company } = useQuery<CompanySettings>({
+    queryKey: ["/api/settings"],
+    queryFn: () => customFetch<CompanySettings>("/api/settings", { method: "GET" }),
+    staleTime: 60000,
+  });
 
   if (isLoading || !order) return <div className="p-8 text-center animate-pulse">جاري التحميل...</div>;
 
@@ -21,7 +35,7 @@ export default function AdminOrderDetail() {
   return (
     <>
       {/* Hidden print invoice — shown only when window.print() is called */}
-      <PrintInvoice order={order} logs={logs} />
+      <PrintInvoice order={order} logs={logs} company={company} />
 
       {/* Screen view */}
       <div className="max-w-3xl mx-auto space-y-6 pb-20">

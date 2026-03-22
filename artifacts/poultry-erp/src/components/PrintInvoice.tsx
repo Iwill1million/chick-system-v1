@@ -12,6 +12,14 @@ interface DeliveryLog {
   deliveredQuantity: number;
 }
 
+interface CompanySettings {
+  name?: string;
+  address?: string;
+  phone?: string;
+  commercialRegNo?: string;
+  logoUrl?: string;
+}
+
 interface PrintInvoiceProps {
   order: {
     id: number;
@@ -22,9 +30,10 @@ interface PrintInvoiceProps {
     items: OrderItem[];
   };
   logs?: DeliveryLog[];
+  company?: CompanySettings;
 }
 
-export default function PrintInvoice({ order, logs = [] }: PrintInvoiceProps) {
+export default function PrintInvoice({ order, logs = [], company }: PrintInvoiceProps) {
   const totalAmount = order.items.reduce(
     (sum, item) => sum + item.quantity * parseFloat(item.unitPrice),
     0
@@ -36,6 +45,8 @@ export default function PrintInvoice({ order, logs = [] }: PrintInvoiceProps) {
       : order.status === "cancelled"
       ? { bg: "#fee2e2", color: "#991b1b" }
       : { bg: "#fef3c7", color: "#92400e" };
+
+  const companyName = company?.name?.trim() || "نظام إدارة تجارة الدواجن";
 
   return (
     <div
@@ -58,14 +69,38 @@ export default function PrintInvoice({ order, logs = [] }: PrintInvoiceProps) {
           alignItems: "center",
         }}
       >
-        <div>
-          <h1 style={{ fontSize: 24, fontWeight: 800, color: "#059669", margin: 0 }}>
-            نظام إدارة تجارة الدواجن
-          </h1>
-          <p style={{ fontSize: 12, color: "#666", marginTop: 4 }}>فاتورة طلب رسمية</p>
+        {/* Company info (right) */}
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          {company?.logoUrl && (
+            <img
+              src={company.logoUrl}
+              alt="شعار الشركة"
+              style={{ height: 60, width: "auto", objectFit: "contain" }}
+            />
+          )}
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 800, color: "#059669", margin: 0 }}>
+              {companyName}
+            </h1>
+            {company?.address && (
+              <p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>{company.address}</p>
+            )}
+            {company?.phone && (
+              <p style={{ fontSize: 11, color: "#555", marginTop: 1 }} dir="ltr">
+                {company.phone}
+              </p>
+            )}
+            {company?.commercialRegNo && (
+              <p style={{ fontSize: 11, color: "#777", marginTop: 1 }}>
+                السجل التجاري: {company.commercialRegNo}
+              </p>
+            )}
+          </div>
         </div>
+
+        {/* Invoice number + date (left) */}
         <div style={{ textAlign: "left" }}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: "#111" }}>طلب #{order.id}</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "#111" }}>فاتورة #{order.id}</div>
           <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>{formatDate(order.orderDate)}</div>
         </div>
       </div>
@@ -260,7 +295,7 @@ export default function PrintInvoice({ order, logs = [] }: PrintInvoiceProps) {
           color: "#999",
         }}
       >
-        تم إصدار هذه الفاتورة من نظام إدارة تجارة الدواجن —{" "}
+        تم إصدار هذه الفاتورة بواسطة {companyName} —{" "}
         {new Date().toLocaleDateString("ar-EG")}
       </div>
     </div>

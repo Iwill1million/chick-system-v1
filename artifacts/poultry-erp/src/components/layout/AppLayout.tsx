@@ -18,6 +18,7 @@ import {
   Menu,
   X,
   CheckCheck,
+  Settings,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn, formatDate } from "@/lib/utils";
@@ -53,6 +54,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     { href: "/customers", label: "العملاء", icon: Users },
     { href: "/products", label: "المنتجات", icon: Package },
     { href: "/agents", label: "المندوبون", icon: Truck },
+    { href: "/settings", label: "إعدادات الشركة", icon: Settings },
   ];
 
   const agentLinks = [{ href: "/agent/orders", label: "طلباتي", icon: Truck }];
