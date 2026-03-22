@@ -147,7 +147,10 @@ export default function OrderDetail() {
         
         {/* Always allow cancelling unless already cancelled/delivered */}
         {['pending', 'preparing', 'delivering'].includes(order.status) && (
-          <Button variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => updateStatus("cancelled")} isLoading={statusMut.isPending}><XCircle className="w-4 h-4 ml-2"/> إلغاء</Button>
+          <div className="flex flex-col items-end gap-1 flex-1">
+            <Button variant="outline" className="w-full text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => updateStatus("cancelled")} isLoading={statusMut.isPending}><XCircle className="w-4 h-4 ml-2"/> إلغاء الطلب</Button>
+            <p className="text-xs text-muted-foreground text-center w-full">سيتم إعادة الكميات المحجوزة إلى المخزون تلقائياً</p>
+          </div>
         )}
       </div>
 

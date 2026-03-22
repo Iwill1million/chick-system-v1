@@ -350,6 +350,15 @@ router.patch("/orders/:id/status", authenticateToken, async (req: Request, res: 
       status: newStatus as typeof ordersTable.$inferInsert["status"],
     }).where(eq(ordersTable.id, id));
 
+    if (newStatus === "cancelled") {
+      const items = await tx.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, id));
+      for (const item of items) {
+        await tx.update(productsTable)
+          .set({ stockQuantity: sql`${productsTable.stockQuantity} + ${item.quantity}` })
+          .where(eq(productsTable.id, item.productId));
+      }
+    }
+
     await tx.insert(orderHistoryTable).values({
       orderId: id,
       changedBy: authReq.user.userId,

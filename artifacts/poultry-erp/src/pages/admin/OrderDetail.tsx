@@ -2,7 +2,7 @@ import { useParams } from "wouter";
 import { useGetOrder, useGetDeliveryLogs } from "@workspace/api-client-react";
 import { Card, Badge } from "@/components/ui-components";
 import { formatCurrency, formatDate, statusColors, statusLabels } from "@/lib/utils";
-import { MapPin, Phone, Calendar, Package, ArrowRight, Truck, CheckCircle2, Printer } from "lucide-react";
+import { MapPin, Phone, Calendar, Package, ArrowRight, Truck, CheckCircle2, Printer, RotateCcw } from "lucide-react";
 import { Link } from "wouter";
 import PrintInvoice from "@/components/PrintInvoice";
 import OrderHistoryTimeline from "@/components/OrderHistoryTimeline";
@@ -134,9 +134,20 @@ export default function AdminOrderDetail() {
           </Card>
         )}
 
-        {logs.length === 0 && order.status !== "delivered" && (
+        {logs.length === 0 && order.status !== "delivered" && order.status !== "cancelled" && (
           <Card className="p-5 text-center text-muted-foreground">
             <p className="text-sm">لم يتم تسجيل أي توصيل بعد</p>
+          </Card>
+        )}
+
+        {/* Stock restore notice — shown when order is cancelled */}
+        {order.status === "cancelled" && (
+          <Card className="p-4 bg-amber-50/60 border-amber-200 flex items-start gap-3">
+            <RotateCcw className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-bold text-amber-800">تم استعادة المخزون</p>
+              <p className="text-xs text-amber-700 mt-0.5">تم إعادة كميات منتجات هذا الطلب إلى المخزون تلقائياً عند الإلغاء.</p>
+            </div>
           </Card>
         )}
 
