@@ -29,7 +29,7 @@ router.get("/users", authenticateToken, requireAdmin, async (_req: Request, res:
 router.post("/users", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
   const body = CreateUserBody.safeParse(req.body);
   if (!body.success) {
-    res.status(400).json({ message: "Invalid request" });
+    res.status(400).json({ message: "بيانات غير صحيحة" });
     return;
   }
 
@@ -52,13 +52,13 @@ router.get("/users/:id", authenticateToken, async (req: Request, res: Response) 
   const authReq = req as AuthRequest;
 
   if (authReq.user.role !== "admin" && authReq.user.userId !== id) {
-    res.status(403).json({ message: "Forbidden" });
+    res.status(403).json({ message: "غير مصرح بالوصول" });
     return;
   }
 
   const users = await db.select().from(usersTable).where(eq(usersTable.id, id));
   if (!users[0]) {
-    res.status(404).json({ message: "User not found" });
+    res.status(404).json({ message: "المستخدم غير موجود" });
     return;
   }
 
@@ -69,7 +69,7 @@ router.put("/users/:id", authenticateToken, requireAdmin, async (req: Request, r
   const id = parseInt(String(req.params["id"] ?? "0"));
   const body = UpdateUserBody.safeParse(req.body);
   if (!body.success) {
-    res.status(400).json({ message: "Invalid request" });
+    res.status(400).json({ message: "بيانات غير صحيحة" });
     return;
   }
 
@@ -84,7 +84,7 @@ router.put("/users/:id", authenticateToken, requireAdmin, async (req: Request, r
 
   const updated = await db.update(usersTable).set(updates).where(eq(usersTable.id, id)).returning();
   if (!updated[0]) {
-    res.status(404).json({ message: "User not found" });
+    res.status(404).json({ message: "المستخدم غير موجود" });
     return;
   }
 

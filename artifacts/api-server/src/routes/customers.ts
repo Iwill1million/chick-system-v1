@@ -27,7 +27,7 @@ router.get("/customers", authenticateToken, async (_req: Request, res: Response)
 router.post("/customers", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
   const body = CreateCustomerBody.safeParse(req.body);
   if (!body.success) {
-    res.status(400).json({ message: "Invalid request" });
+    res.status(400).json({ message: "بيانات غير صحيحة" });
     return;
   }
 
@@ -46,7 +46,7 @@ router.get("/customers/:id", authenticateToken, async (req: Request, res: Respon
   const id = parseInt(String(req.params["id"] ?? "0"));
   const customers = await db.select().from(customersTable).where(eq(customersTable.id, id));
   if (!customers[0]) {
-    res.status(404).json({ message: "Customer not found" });
+    res.status(404).json({ message: "العميل غير موجود" });
     return;
   }
   res.json(formatCustomer(customers[0]));
@@ -56,7 +56,7 @@ router.put("/customers/:id", authenticateToken, requireAdmin, async (req: Reques
   const id = parseInt(String(req.params["id"] ?? "0"));
   const body = CreateCustomerBody.safeParse(req.body);
   if (!body.success) {
-    res.status(400).json({ message: "Invalid request" });
+    res.status(400).json({ message: "بيانات غير صحيحة" });
     return;
   }
 
@@ -69,7 +69,7 @@ router.put("/customers/:id", authenticateToken, requireAdmin, async (req: Reques
   }).where(eq(customersTable.id, id)).returning();
 
   if (!updated[0]) {
-    res.status(404).json({ message: "Customer not found" });
+    res.status(404).json({ message: "العميل غير موجود" });
     return;
   }
 

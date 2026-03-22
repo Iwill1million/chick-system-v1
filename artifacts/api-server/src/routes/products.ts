@@ -27,7 +27,7 @@ router.get("/products", authenticateToken, async (_req: Request, res: Response) 
 router.post("/products", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
   const body = CreateProductBody.safeParse(req.body);
   if (!body.success) {
-    res.status(400).json({ message: "Invalid request" });
+    res.status(400).json({ message: "بيانات غير صحيحة" });
     return;
   }
 
@@ -46,7 +46,7 @@ router.get("/products/:id", authenticateToken, async (req: Request, res: Respons
   const id = parseInt(String(req.params["id"] ?? "0"));
   const products = await db.select().from(productsTable).where(eq(productsTable.id, id));
   if (!products[0]) {
-    res.status(404).json({ message: "Product not found" });
+    res.status(404).json({ message: "المنتج غير موجود" });
     return;
   }
   res.json(formatProduct(products[0]));
@@ -56,7 +56,7 @@ router.put("/products/:id", authenticateToken, requireAdmin, async (req: Request
   const id = parseInt(String(req.params["id"] ?? "0"));
   const body = CreateProductBody.safeParse(req.body);
   if (!body.success) {
-    res.status(400).json({ message: "Invalid request" });
+    res.status(400).json({ message: "بيانات غير صحيحة" });
     return;
   }
 
@@ -69,7 +69,7 @@ router.put("/products/:id", authenticateToken, requireAdmin, async (req: Request
   }).where(eq(productsTable.id, id)).returning();
 
   if (!updated[0]) {
-    res.status(404).json({ message: "Product not found" });
+    res.status(404).json({ message: "المنتج غير موجود" });
     return;
   }
 

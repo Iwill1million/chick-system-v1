@@ -1,7 +1,7 @@
 import { Router, type IRouter, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { ordersTable, orderItemsTable, customersTable, usersTable, productsTable, notificationsTable } from "@workspace/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, SQL } from "drizzle-orm";
 import { authenticateToken, requireAdmin, AuthPayload } from "../middlewares/auth";
 import { CreateOrderBody, UpdateOrderBody, UpdateOrderStatusBody } from "@workspace/api-zod";
 
@@ -81,17 +81,22 @@ router.get("/orders", authenticateToken, async (req: Request, res: Response) => 
   const authReq = req as AuthRequest;
   const { status, agentId } = req.query;
 
-  let allOrders = await db.select().from(ordersTable);
+  const conditions: SQL[] = [];
 
   if (authReq.user.role === "agent") {
-    allOrders = allOrders.filter(o => o.agentId === authReq.user.userId);
-  } else if (agentId) {
-    allOrders = allOrders.filter(o => o.agentId === parseInt(agentId as string));
+    conditions.push(eq(ordersTable.agentId, authReq.user.userId));
+  } else if (agentId && typeof agentId === "string") {
+    const parsedAgentId = parseInt(agentId, 10);
+    if (!isNaN(parsedAgentId)) conditions.push(eq(ordersTable.agentId, parsedAgentId));
   }
 
-  if (status) {
-    allOrders = allOrders.filter(o => o.status === status);
+  if (status && typeof status === "string") {
+    conditions.push(eq(ordersTable.status, status as typeof ordersTable.$inferSelect["status"]));
   }
+
+  const allOrders = conditions.length > 0
+    ? await db.select().from(ordersTable).where(and(...conditions))
+    : await db.select().from(ordersTable);
 
   const ordersWithDetails = await Promise.all(allOrders.map(o => getOrderWithDetails(o.id)));
   res.json(ordersWithDetails.filter(Boolean));
@@ -100,7 +105,7 @@ router.get("/orders", authenticateToken, async (req: Request, res: Response) => 
 router.post("/orders", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
   const body = CreateOrderBody.safeParse(req.body);
   if (!body.success) {
-    res.status(400).json({ message: "Invalid request" });
+    res.status(400).json({ message: "بيانات الطلب غير صحيحة" });
     return;
   }
 
@@ -147,12 +152,12 @@ router.get("/orders/:id", authenticateToken, async (req: Request, res: Response)
 
   const result = await getOrderWithDetails(id);
   if (!result) {
-    res.status(404).json({ message: "Order not found" });
+    res.status(404).json({ message: "الطلب غير موجود" });
     return;
   }
 
   if (authReq.user.role === "agent" && result.agentId !== authReq.user.userId) {
-    res.status(403).json({ message: "Forbidden" });
+    res.status(403).json({ message: "غير مصرح بالوصول" });
     return;
   }
 
@@ -163,13 +168,13 @@ router.put("/orders/:id", authenticateToken, requireAdmin, async (req: Request, 
   const id = parseInt(String(req.params["id"] ?? "0"));
   const body = UpdateOrderBody.safeParse(req.body);
   if (!body.success) {
-    res.status(400).json({ message: "Invalid request" });
+    res.status(400).json({ message: "بيانات التعديل غير صحيحة" });
     return;
   }
 
   const existing = await db.select().from(ordersTable).where(eq(ordersTable.id, id));
   if (!existing[0]) {
-    res.status(404).json({ message: "Order not found" });
+    res.status(404).json({ message: "الطلب غير موجود" });
     return;
   }
 
@@ -225,18 +230,18 @@ router.patch("/orders/:id/status", authenticateToken, async (req: Request, res: 
   const authReq = req as AuthRequest;
   const body = UpdateOrderStatusBody.safeParse(req.body);
   if (!body.success) {
-    res.status(400).json({ message: "Invalid request" });
+    res.status(400).json({ message: "حالة الطلب غير صحيحة" });
     return;
   }
 
   const existing = await db.select().from(ordersTable).where(eq(ordersTable.id, id));
   if (!existing[0]) {
-    res.status(404).json({ message: "Order not found" });
+    res.status(404).json({ message: "الطلب غير موجود" });
     return;
   }
 
   if (authReq.user.role === "agent" && existing[0].agentId !== authReq.user.userId) {
-    res.status(403).json({ message: "Forbidden" });
+    res.status(403).json({ message: "غير مصرح بالوصول" });
     return;
   }
 
