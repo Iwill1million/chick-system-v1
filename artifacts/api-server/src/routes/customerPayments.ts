@@ -43,7 +43,9 @@ router.get("/customers/:id/payments", authenticateToken, requireAdmin, async (re
     paymentDate: p.paymentDate,
     notes: p.notes,
     createdAt: p.createdAt?.toISOString() ?? null,
-    createdBy: p.createdBy ?? { id: 0, name: "مستخدم محذوف" },
+    createdBy: p.createdBy?.id != null
+      ? { id: p.createdBy.id, name: p.createdBy.name ?? "مستخدم محذوف" }
+      : { id: 0, name: "مستخدم محذوف" },
   })));
 });
 
