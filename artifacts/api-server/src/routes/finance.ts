@@ -31,15 +31,26 @@ router.get("/finance/summary", authenticateToken, requireAdmin, async (req: Requ
   }
   const ordersByStatus = Object.entries(statusCounts).map(([status, count]) => ({ status, count }));
 
-  // Daily order counts within the filtered range
+  // Daily order counts within the filtered range (fill zeros for every day)
   const dailyOrderMap = new Map<string, number>();
   for (const order of allOrders) {
-    const date = order.orderDate;
-    dailyOrderMap.set(date, (dailyOrderMap.get(date) ?? 0) + 1);
+    dailyOrderMap.set(order.orderDate, (dailyOrderMap.get(order.orderDate) ?? 0) + 1);
   }
-  const dailyOrders = Array.from(dailyOrderMap.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, count]) => ({ date, count }));
+  // Fill zero for every calendar day in the [from, to] window
+  const dailyOrders: { date: string; count: number }[] = [];
+  if (fromStr && toStr) {
+    const cursor = new Date(fromStr);
+    const end = new Date(toStr);
+    while (cursor <= end) {
+      const d = cursor.toISOString().slice(0, 10);
+      dailyOrders.push({ date: d, count: dailyOrderMap.get(d) ?? 0 });
+      cursor.setDate(cursor.getDate() + 1);
+    }
+  } else {
+    Array.from(dailyOrderMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .forEach(([date, count]) => dailyOrders.push({ date, count }));
+  }
 
   // All-time data for receivables and customer real balances (unaffected by date filter)
   const [allPaymentsForReceivables, allOrdersForReceivables, allOrderItemsForReceivables] = await Promise.all([

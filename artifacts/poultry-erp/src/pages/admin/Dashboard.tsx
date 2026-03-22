@@ -355,7 +355,7 @@ export default function Dashboard() {
       </div>
 
       {/* Daily orders line chart */}
-      {dailyOrdersData.length > 1 && (
+      {dailyOrdersData.length > 0 && (
         <motion.div variants={itemVariants}>
           <Card className="p-6">
             <h3 className="text-lg font-bold mb-6">الطلبات اليومية</h3>
