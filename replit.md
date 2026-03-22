@@ -6,10 +6,11 @@ A full-stack Arabic RTL ERP web application for a poultry trading business (chic
 
 ### Monorepo Structure
 - `artifacts/api-server/` — Express.js REST API backend (port 8080)
-- `artifacts/poultry-erp/` — React + Vite frontend (port 18771, served at `/`)
+- `artifacts/poultry-erp/` — React + Vite frontend (served at `/`)
 - `lib/db/` — Drizzle ORM schema and DB utilities
 - `lib/api-spec/` — OpenAPI YAML specification
-- `lib/api-client-react/` — Generated React Query hooks + Zod schemas
+- `lib/api-zod/` — Generated Zod schemas from OpenAPI
+- `lib/api-client-react/` — Generated React Query hooks
 - `scripts/` — Seed scripts and utilities
 
 ### Tech Stack
@@ -25,50 +26,87 @@ A full-stack Arabic RTL ERP web application for a poultry trading business (chic
 2. **Delivery Agent** (`/agent/orders`) — Can view their assigned orders and log deliveries
 
 ### Admin Features
-- **Dashboard** — Finance overview with Recharts charts, KPIs (revenue, orders, customers)
+- **Dashboard** — Finance overview with Recharts charts, KPIs (revenue, orders, customers), date range filter
 - **Customers** (`/customers`) — CRUD for customer management
-- **Products** (`/products`) — CRUD for products (chicks/chickens) with type, price, unit
-- **Orders** (`/orders`) — Create/manage orders, assign to agents, track status
+- **Products** (`/products`) — CRUD for products (chicks/chickens) with type, price, stock
+- **Orders** (`/orders`) — Create/manage orders, assign to agents, track status, view detail at `/orders/:id`
 - **Agents** (`/agents`) — View and manage delivery agents
 
 ### Agent Features
 - **My Orders** (`/agent/orders`) — View orders assigned to them
-- **Order Detail** (`/agent/orders/:id`) — Log delivery progress
+- **Order Detail** (`/agent/orders/:id`) — Log delivery progress, update status
 
 ### Notifications
-- Bell icon in sidebar shows unread count
+- Bell icon in header shows unread count badge
+- Dropdown panel (desktop + mobile) lists notifications with mark-as-read
 - Polls every 30 seconds for new notifications
 
 ## Authentication
 - JWT stored in `localStorage` as `poultry_erp_token`
 - Default admin: `username=admin`, `password=admin123`
-- JWT secret: `poultry-erp-secret-key-2024` (set as env var `JWT_SECRET`)
+- JWT secret configured as Replit Secret `JWT_SECRET`
 
 ## API Endpoints
-- `POST /api/auth/login` — Login, returns JWT
-- `GET /api/auth/me` — Get current user
-- `GET/POST /api/customers` — Customer CRUD
-- `GET/POST /api/products` — Product CRUD
-- `GET/POST /api/orders` — Order CRUD
-- `GET/POST /api/delivery-logs` — Delivery log CRUD
-- `GET /api/notifications` — List notifications
-- `POST /api/notifications/read-all` — Mark all as read
-- `GET /api/finance` — Finance stats with optional `from`/`to` date filters
-- `GET/POST /api/users` — Agent management
+
+All endpoints are prefixed with `/api`.
+
+### Auth
+- `POST /api/auth/login` — Login with username/password, returns JWT token
+- `GET /api/auth/me` — Get current authenticated user
+
+### Users / Agents (admin only for write)
+- `GET /api/users` — List all users
+- `POST /api/users` — Create user
+- `GET /api/users/:id` — Get user by ID
+- `PUT /api/users/:id` — Update user
+- `DELETE /api/users/:id` — Delete user
+
+### Customers (admin only for write)
+- `GET /api/customers` — List all customers
+- `POST /api/customers` — Create customer
+- `GET /api/customers/:id` — Get customer by ID
+- `PUT /api/customers/:id` — Update customer
+- `DELETE /api/customers/:id` — Delete customer
+
+### Products (admin only for write)
+- `GET /api/products` — List all products
+- `POST /api/products` — Create product
+- `GET /api/products/:id` — Get product by ID
+- `PUT /api/products/:id` — Update product
+- `DELETE /api/products/:id` — Delete product
+
+### Orders
+- `GET /api/orders` — List orders (filtered by agent for agent role)
+- `POST /api/orders` — Create order (admin only)
+- `GET /api/orders/:id` — Get order with details
+- `PUT /api/orders/:id` — Update order (admin only)
+- `DELETE /api/orders/:id` — Delete order + all related data (admin only)
+- `PATCH /api/orders/:id/status` — Update order status
+
+### Delivery Logs
+- `POST /api/delivery-logs` — Create delivery log (agent logs for their order)
+- `GET /api/delivery-logs/:orderId` — Get logs for an order
+
+### Notifications
+- `GET /api/notifications` — List notifications for current user
+- `POST /api/notifications/mark-read` — Mark notifications as read (`{ ids?: number[], all?: boolean }`)
+
+### Finance (admin only)
+- `GET /api/finance/summary` — Finance summary with optional `?from=YYYY-MM-DD&to=YYYY-MM-DD` date range
 
 ## Database Schema
-Tables: `users`, `customers`, `products`, `orders`, `orderItems`, `deliveryLogs`, `notifications`
+Tables: `users`, `customers`, `products`, `orders`, `order_items`, `delivery_logs`, `notifications`
+
+Indexes:
+- `orders.agent_id`, `orders.status`, `orders.order_date`
+- `notifications(user_id, is_read)` (composite)
 
 ## Development
 
 ### Start Development
 ```bash
-# Start all services
-pnpm run dev
-
-# Or individually:
 pnpm --filter @workspace/api-server run dev   # API on port 8080
-pnpm --filter @workspace/poultry-erp run dev  # Frontend on port 18771
+pnpm --filter @workspace/poultry-erp run dev  # Frontend
 ```
 
 ### Re-run API codegen
@@ -81,9 +119,14 @@ pnpm --filter @workspace/api-client-react run generate
 pnpm --filter @workspace/scripts run seed
 ```
 
+### Push DB schema changes
+```bash
+cd lib/db && pnpm drizzle-kit push
+```
+
 ## Design
 - All UI text in Arabic
 - RTL layout (`dir="rtl"`)
 - Fonts: Cairo (display) + Tajawal (body) from Google Fonts
 - Color scheme: Emerald green primary (#10b981 range)
-- Mobile-responsive sidebar that slides from the right
+- Mobile-responsive with sliding sidebar from the right

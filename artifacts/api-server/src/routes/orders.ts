@@ -111,36 +111,40 @@ router.post("/orders", authenticateToken, requireAdmin, async (req: Request, res
 
   const { customerId, agentId, orderDate, deliveryDate, notes, items } = body.data;
 
-  const inserted = await db.insert(ordersTable).values({
-    customerId,
-    agentId: agentId ?? null,
-    status: "pending",
-    orderDate,
-    deliveryDate: deliveryDate ?? null,
-    notes: notes ?? null,
-  }).returning();
+  const order = await db.transaction(async (tx) => {
+    const inserted = await tx.insert(ordersTable).values({
+      customerId,
+      agentId: agentId ?? null,
+      status: "pending",
+      orderDate,
+      deliveryDate: deliveryDate ?? null,
+      notes: notes ?? null,
+    }).returning();
 
-  const order = inserted[0];
+    const newOrder = inserted[0];
 
-  if (items && items.length > 0) {
-    await db.insert(orderItemsTable).values(
-      items.map(item => ({
-        orderId: order.id,
-        productId: item.productId,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-      }))
-    );
-  }
+    if (items && items.length > 0) {
+      await tx.insert(orderItemsTable).values(
+        items.map(item => ({
+          orderId: newOrder.id,
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+        }))
+      );
+    }
 
-  if (agentId) {
-    await db.insert(notificationsTable).values({
-      userId: agentId,
-      message: `تم تعيين طلب جديد رقم #${order.id} إليك`,
-      orderId: order.id,
-      isRead: false,
-    });
-  }
+    if (agentId) {
+      await tx.insert(notificationsTable).values({
+        userId: agentId,
+        message: `تم تعيين طلب جديد رقم #${newOrder.id} إليك`,
+        orderId: newOrder.id,
+        isRead: false,
+      });
+    }
+
+    return newOrder;
+  });
 
   const result = await getOrderWithDetails(order.id);
   res.status(201).json(result);

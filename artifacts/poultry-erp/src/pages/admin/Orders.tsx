@@ -263,16 +263,30 @@ export default function Orders() {
       >
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Select
-              label="العميل *"
-              required
-              options={customers.map((c) => ({
-                label: `${c.name} (${c.phone || ""})`,
-                value: c.id,
-              }))}
-              value={formData.customerId}
-              onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
-            />
+            <div className="space-y-2">
+              <Select
+                label="العميل *"
+                required
+                options={customers.map((c) => ({
+                  label: `${c.name} (${c.phone || ""})`,
+                  value: c.id,
+                }))}
+                value={formData.customerId}
+                onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
+              />
+              {formData.customerId && (() => {
+                const sel = customers.find(c => c.id === parseInt(formData.customerId));
+                return sel ? (
+                  <div className="p-3 bg-secondary/30 rounded-xl text-sm space-y-1">
+                    {sel.phone && <div className="flex justify-between"><span className="text-muted-foreground">الهاتف:</span> <span dir="ltr">{sel.phone}</span></div>}
+                    {sel.location && <div className="flex justify-between"><span className="text-muted-foreground">الموقع:</span> <span>{sel.location}</span></div>}
+                    {sel.openingBalance && parseFloat(sel.openingBalance) !== 0 && (
+                      <div className="flex justify-between"><span className="text-muted-foreground">الرصيد الافتتاحي:</span> <span className="font-bold">{sel.openingBalance}</span></div>
+                    )}
+                  </div>
+                ) : null;
+              })()}
+            </div>
             <Select
               label="المندوب"
               options={[
