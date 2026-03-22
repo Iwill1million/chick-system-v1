@@ -43,7 +43,8 @@ router.post("/products", authenticateToken, requireAdmin, async (req: Request, r
 });
 
 router.get("/products/:id", authenticateToken, async (req: Request, res: Response) => {
-  const id = parseInt(String(req.params["id"] ?? "0"));
+  const id = parseInt(String(req.params["id"] ?? ""), 10);
+  if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
   const products = await db.select().from(productsTable).where(eq(productsTable.id, id));
   if (!products[0]) {
     res.status(404).json({ message: "المنتج غير موجود" });
@@ -53,7 +54,8 @@ router.get("/products/:id", authenticateToken, async (req: Request, res: Respons
 });
 
 router.put("/products/:id", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
-  const id = parseInt(String(req.params["id"] ?? "0"));
+  const id = parseInt(String(req.params["id"] ?? ""), 10);
+  if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
   const body = CreateProductBody.safeParse(req.body);
   if (!body.success) {
     res.status(400).json({ message: "بيانات غير صحيحة" });
@@ -77,7 +79,8 @@ router.put("/products/:id", authenticateToken, requireAdmin, async (req: Request
 });
 
 router.delete("/products/:id", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
-  const id = parseInt(String(req.params["id"] ?? "0"));
+  const id = parseInt(String(req.params["id"] ?? ""), 10);
+  if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
   await db.delete(productsTable).where(eq(productsTable.id, id));
   res.status(204).send();
 });

@@ -151,7 +151,8 @@ router.post("/orders", authenticateToken, requireAdmin, async (req: Request, res
 });
 
 router.get("/orders/:id", authenticateToken, async (req: Request, res: Response) => {
-  const id = parseInt(String(req.params["id"] ?? "0"));
+  const id = parseInt(String(req.params["id"] ?? ""), 10);
+  if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
   const authReq = req as AuthRequest;
 
   const result = await getOrderWithDetails(id);
@@ -169,7 +170,8 @@ router.get("/orders/:id", authenticateToken, async (req: Request, res: Response)
 });
 
 router.put("/orders/:id", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
-  const id = parseInt(String(req.params["id"] ?? "0"));
+  const id = parseInt(String(req.params["id"] ?? ""), 10);
+  if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
   const body = UpdateOrderBody.safeParse(req.body);
   if (!body.success) {
     res.status(400).json({ message: "بيانات التعديل غير صحيحة" });
@@ -223,7 +225,8 @@ router.put("/orders/:id", authenticateToken, requireAdmin, async (req: Request, 
 });
 
 router.delete("/orders/:id", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
-  const id = parseInt(String(req.params["id"] ?? "0"));
+  const id = parseInt(String(req.params["id"] ?? ""), 10);
+  if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
   await db.delete(notificationsTable).where(eq(notificationsTable.orderId, id));
   await db.delete(deliveryLogsTable).where(eq(deliveryLogsTable.orderId, id));
   await db.delete(orderItemsTable).where(eq(orderItemsTable.orderId, id));
@@ -232,7 +235,8 @@ router.delete("/orders/:id", authenticateToken, requireAdmin, async (req: Reques
 });
 
 router.patch("/orders/:id/status", authenticateToken, async (req: Request, res: Response) => {
-  const id = parseInt(String(req.params["id"] ?? "0"));
+  const id = parseInt(String(req.params["id"] ?? ""), 10);
+  if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
   const authReq = req as AuthRequest;
   const body = UpdateOrderStatusBody.safeParse(req.body);
   if (!body.success) {

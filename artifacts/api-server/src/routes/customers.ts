@@ -43,7 +43,8 @@ router.post("/customers", authenticateToken, requireAdmin, async (req: Request, 
 });
 
 router.get("/customers/:id", authenticateToken, async (req: Request, res: Response) => {
-  const id = parseInt(String(req.params["id"] ?? "0"));
+  const id = parseInt(String(req.params["id"] ?? ""), 10);
+  if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
   const customers = await db.select().from(customersTable).where(eq(customersTable.id, id));
   if (!customers[0]) {
     res.status(404).json({ message: "العميل غير موجود" });
@@ -53,7 +54,8 @@ router.get("/customers/:id", authenticateToken, async (req: Request, res: Respon
 });
 
 router.put("/customers/:id", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
-  const id = parseInt(String(req.params["id"] ?? "0"));
+  const id = parseInt(String(req.params["id"] ?? ""), 10);
+  if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
   const body = CreateCustomerBody.safeParse(req.body);
   if (!body.success) {
     res.status(400).json({ message: "بيانات غير صحيحة" });
@@ -77,7 +79,8 @@ router.put("/customers/:id", authenticateToken, requireAdmin, async (req: Reques
 });
 
 router.delete("/customers/:id", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
-  const id = parseInt(String(req.params["id"] ?? "0"));
+  const id = parseInt(String(req.params["id"] ?? ""), 10);
+  if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
   await db.delete(customersTable).where(eq(customersTable.id, id));
   res.status(204).send();
 });

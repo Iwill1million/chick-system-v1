@@ -46,9 +46,13 @@ router.post("/delivery-logs", authenticateToken, async (req: Request, res: Respo
     return;
   }
 
+  const logAgentId = authReq.user.role === "admin" && order.agentId
+    ? order.agentId
+    : authReq.user.userId;
+
   const inserted = await db.insert(deliveryLogsTable).values({
     orderId,
-    agentId: authReq.user.userId,
+    agentId: logAgentId,
     collectedAmount: body.data.collectedAmount,
     deliveredQuantity: body.data.deliveredQuantity,
     fuelExpense: body.data.fuelExpense,
@@ -73,7 +77,8 @@ router.post("/delivery-logs", authenticateToken, async (req: Request, res: Respo
 
 router.get("/delivery-logs/:orderId", authenticateToken, async (req: Request, res: Response) => {
   const authReq = req as AuthRequest;
-  const orderId = parseInt(String(req.params["orderId"] ?? "0"));
+  const orderId = parseInt(String(req.params["orderId"] ?? ""), 10);
+  if (!orderId || isNaN(orderId)) { res.status(400).json({ message: "معرف الطلب غير صالح" }); return; }
 
   if (authReq.user.role !== "admin") {
     const orders = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));

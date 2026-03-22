@@ -48,7 +48,8 @@ router.post("/users", authenticateToken, requireAdmin, async (req: Request, res:
 });
 
 router.get("/users/:id", authenticateToken, async (req: Request, res: Response) => {
-  const id = parseInt(String(req.params["id"] ?? "0"));
+  const id = parseInt(String(req.params["id"] ?? ""), 10);
+  if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
   const authReq = req as AuthRequest;
 
   if (authReq.user.role !== "admin" && authReq.user.userId !== id) {
@@ -66,7 +67,8 @@ router.get("/users/:id", authenticateToken, async (req: Request, res: Response) 
 });
 
 router.put("/users/:id", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
-  const id = parseInt(String(req.params["id"] ?? "0"));
+  const id = parseInt(String(req.params["id"] ?? ""), 10);
+  if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
   const body = UpdateUserBody.safeParse(req.body);
   if (!body.success) {
     res.status(400).json({ message: "بيانات غير صحيحة" });
@@ -92,7 +94,8 @@ router.put("/users/:id", authenticateToken, requireAdmin, async (req: Request, r
 });
 
 router.delete("/users/:id", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
-  const id = parseInt(String(req.params["id"] ?? "0"));
+  const id = parseInt(String(req.params["id"] ?? ""), 10);
+  if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
   await db.delete(usersTable).where(eq(usersTable.id, id));
   res.status(204).send();
 });
