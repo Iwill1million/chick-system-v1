@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { OfflineBanner } from "@/components/OfflineBanner";
 
 // Pages
 import Login from "@/pages/Login";
@@ -112,6 +113,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <AuthProvider>
+          <OfflineBanner />
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
             <Router />
           </WouterRouter>

@@ -20,9 +20,7 @@ export default defineConfig({
         enabled: true,
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2}"],
-        navigateFallback: "/offline.html",
-        navigateFallbackDenylist: [/^\/api\//, /^\/icons\//, /^\/manifest\.json/],
+        globPatterns: ["**/*.{js,css,ico,png,svg,woff,woff2}"],
         offlineGoogleAnalytics: false,
         runtimeCaching: [
           {

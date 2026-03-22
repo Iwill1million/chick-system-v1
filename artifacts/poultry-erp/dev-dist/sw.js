@@ -81,13 +81,12 @@ define(['./workbox-dcb3ec6a'], (function (workbox) { 'use strict';
     "url": "registerSW.js",
     "revision": "3ca0b8505b4bec776b69afdba2768812"
   }, {
-    "url": "/offline.html",
-    "revision": "0.6hhmfi68cos"
+    "url": "index.html",
+    "revision": "0.3tf36p6dts4"
   }], {});
   workbox.cleanupOutdatedCaches();
-  workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("/offline.html"), {
-    allowlist: [/^\/$/],
-    denylist: [/^\/api\//, /^\/icons\//, /^\/manifest\.json/]
+  workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("index.html"), {
+    allowlist: [/^\/$/]
   }));
   workbox.registerRoute(/^\/api\/.*/i, new workbox.NetworkFirst({
     "cacheName": "api-cache",
