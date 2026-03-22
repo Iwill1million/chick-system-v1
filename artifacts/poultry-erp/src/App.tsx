@@ -12,6 +12,7 @@ import Orders from "@/pages/admin/Orders";
 import Agents from "@/pages/admin/Agents";
 import MyOrders from "@/pages/agent/MyOrders";
 import OrderDetail from "@/pages/agent/OrderDetail";
+import AdminOrderDetail from "@/pages/admin/OrderDetail";
 
 const queryClient = new QueryClient();
 
@@ -68,6 +69,11 @@ function Router() {
       </Route>
       <Route path="/agents">
         <AdminRoute component={Agents} />
+      </Route>
+
+      {/* Admin Order Detail */}
+      <Route path="/orders/:id">
+        <AdminRoute component={AdminOrderDetail} />
       </Route>
 
       {/* Agent Routes */}

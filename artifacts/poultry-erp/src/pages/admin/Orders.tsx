@@ -220,7 +220,7 @@ export default function Orders() {
                     <Td>
                       <div className="flex gap-2">
                         <Link
-                          href={`/agent/orders/${o.id}`}
+                          href={`/orders/${o.id}`}
                           className="p-2 hover:bg-secondary rounded-lg transition-colors text-primary"
                         >
                           <Eye className="w-4 h-4" />
