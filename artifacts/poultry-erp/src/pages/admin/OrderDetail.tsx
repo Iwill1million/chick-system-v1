@@ -25,7 +25,7 @@ export default function AdminOrderDetail() {
   const { data: company } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
     queryFn: () => customFetch<CompanySettings>("/api/settings", { method: "GET" }),
-    staleTime: 60000,
+    staleTime: 0,
   });
 
   if (isLoading || !order) return <div className="p-8 text-center animate-pulse">جاري التحميل...</div>;
