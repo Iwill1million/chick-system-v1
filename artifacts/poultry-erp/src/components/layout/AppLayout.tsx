@@ -123,6 +123,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             onClick={toggleTheme}
             className="p-2 text-foreground hover:text-primary transition-colors"
             title={theme === "dark" ? "التبديل للوضع الفاتح" : "التبديل للوضع الداكن"}
+            aria-label={theme === "dark" ? "التبديل للوضع الفاتح" : "التبديل للوضع الداكن"}
           >
             {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </button>
@@ -255,6 +256,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               onClick={toggleTheme}
               className="p-2.5 rounded-full bg-secondary text-foreground hover:bg-primary/10 hover:text-primary transition-colors"
               title={theme === "dark" ? "التبديل للوضع الفاتح" : "التبديل للوضع الداكن"}
+              aria-label={theme === "dark" ? "التبديل للوضع الفاتح" : "التبديل للوضع الداكن"}
             >
               {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
