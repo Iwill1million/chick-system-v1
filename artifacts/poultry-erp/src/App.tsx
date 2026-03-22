@@ -1,22 +1,17 @@
 import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
-import { ThemeProvider } from "@/hooks/use-theme";
 import { AppLayout } from "@/components/layout/AppLayout";
 
 // Pages
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/admin/Dashboard";
 import Customers from "@/pages/admin/Customers";
-import CustomerStatement from "@/pages/admin/CustomerStatement";
 import Products from "@/pages/admin/Products";
 import Orders from "@/pages/admin/Orders";
 import Agents from "@/pages/admin/Agents";
-import Settings from "@/pages/admin/Settings";
 import MyOrders from "@/pages/agent/MyOrders";
 import OrderDetail from "@/pages/agent/OrderDetail";
-import AdminOrderDetail from "@/pages/admin/OrderDetail";
-import AgentReport from "@/pages/admin/AgentReport";
 
 const queryClient = new QueryClient();
 
@@ -40,7 +35,6 @@ function AgentRoute({ component: Component }: { component: React.ComponentType }
   const { user, isLoading } = useAuth();
   if (isLoading) return <LoadingSpinner />;
   if (!user) return <Redirect to="/" />;
-  if (user.role !== "agent") return <Redirect to="/dashboard" />;
   return <AppLayout><Component /></AppLayout>;
 }
 
@@ -62,9 +56,6 @@ function Router() {
       <Route path="/dashboard">
         <AdminRoute component={Dashboard} />
       </Route>
-      <Route path="/customers/:id/statement">
-        <AdminRoute component={CustomerStatement} />
-      </Route>
       <Route path="/customers">
         <AdminRoute component={Customers} />
       </Route>
@@ -74,19 +65,8 @@ function Router() {
       <Route path="/orders">
         <AdminRoute component={Orders} />
       </Route>
-      <Route path="/agents/report">
-        <AdminRoute component={AgentReport} />
-      </Route>
       <Route path="/agents">
         <AdminRoute component={Agents} />
-      </Route>
-      <Route path="/settings">
-        <AdminRoute component={Settings} />
-      </Route>
-
-      {/* Admin Order Detail */}
-      <Route path="/orders/:id">
-        <AdminRoute component={AdminOrderDetail} />
       </Route>
 
       {/* Agent Routes */}
@@ -110,13 +90,11 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <AuthProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <Router />
-          </WouterRouter>
-        </AuthProvider>
-      </ThemeProvider>
+      <AuthProvider>
+        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+          <Router />
+        </WouterRouter>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

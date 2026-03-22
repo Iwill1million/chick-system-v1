@@ -132,7 +132,7 @@ export const ListCustomersResponseItem = zod.object({
 export const ListCustomersResponse = zod.array(ListCustomersResponseItem);
 
 /**
- * @summary Create a new customer (admin only)
+ * @summary Create a new customer
  */
 export const CreateCustomerBody = zod.object({
   name: zod.string(),
@@ -160,7 +160,7 @@ export const GetCustomerResponse = zod.object({
 });
 
 /**
- * @summary Update a customer (admin only)
+ * @summary Update a customer
  */
 export const UpdateCustomerParams = zod.object({
   id: zod.coerce.number(),
@@ -185,87 +185,10 @@ export const UpdateCustomerResponse = zod.object({
 });
 
 /**
- * @summary Delete a customer (admin only)
+ * @summary Delete a customer
  */
 export const DeleteCustomerParams = zod.object({
   id: zod.coerce.number(),
-});
-
-/**
- * @summary List payments for a customer (admin only)
- */
-export const ListCustomerPaymentsParams = zod.object({
-  id: zod.coerce.number(),
-});
-
-export const ListCustomerPaymentsResponseItem = zod.object({
-  id: zod.number(),
-  customerId: zod.number(),
-  amount: zod.string(),
-  paymentDate: zod.string(),
-  notes: zod.string().nullish(),
-  createdAt: zod.string().nullish(),
-  createdBy: zod
-    .object({
-      id: zod.number(),
-      name: zod.string(),
-    })
-    .nullish(),
-});
-export const ListCustomerPaymentsResponse = zod.array(
-  ListCustomerPaymentsResponseItem,
-);
-
-/**
- * @summary Record a payment for a customer (admin only)
- */
-export const CreateCustomerPaymentParams = zod.object({
-  id: zod.coerce.number(),
-});
-
-export const CreateCustomerPaymentBody = zod.object({
-  amount: zod.number(),
-  paymentDate: zod.string(),
-  notes: zod.string().nullish(),
-});
-
-/**
- * @summary Delete a customer payment (admin only)
- */
-export const DeleteCustomerPaymentParams = zod.object({
-  id: zod.coerce.number(),
-  paymentId: zod.coerce.number(),
-});
-
-/**
- * @summary Get full account statement for a customer (admin only)
- */
-export const GetCustomerStatementParams = zod.object({
-  id: zod.coerce.number(),
-});
-
-export const GetCustomerStatementResponse = zod.object({
-  customer: zod.object({
-    id: zod.number(),
-    name: zod.string(),
-    phone: zod.string().nullish(),
-    location: zod.string().nullish(),
-    openingBalance: zod.string(),
-  }),
-  summary: zod.object({
-    openingBalance: zod.string(),
-    totalOrders: zod.string(),
-    totalPaid: zod.string(),
-    currentBalance: zod.string(),
-  }),
-  transactions: zod.array(
-    zod.object({
-      type: zod.enum(["order", "payment"]),
-      date: zod.string(),
-      id: zod.number(),
-      runningBalance: zod.number(),
-    }),
-  ),
 });
 
 /**
@@ -283,7 +206,7 @@ export const ListProductsResponseItem = zod.object({
 export const ListProductsResponse = zod.array(ListProductsResponseItem);
 
 /**
- * @summary Create a new product (admin only)
+ * @summary Create a new product
  */
 export const CreateProductBody = zod.object({
   name: zod.string(),
@@ -311,7 +234,7 @@ export const GetProductResponse = zod.object({
 });
 
 /**
- * @summary Update a product (admin only)
+ * @summary Update a product
  */
 export const UpdateProductParams = zod.object({
   id: zod.coerce.number(),
@@ -336,7 +259,7 @@ export const UpdateProductResponse = zod.object({
 });
 
 /**
- * @summary Delete a product (admin only)
+ * @summary Delete a product
  */
 export const DeleteProductParams = zod.object({
   id: zod.coerce.number(),
@@ -652,26 +575,6 @@ export const UpdateOrderStatusResponse = zod.object({
 });
 
 /**
- * @summary Get order status change history
- */
-export const GetOrderHistoryParams = zod.object({
-  id: zod.coerce.number(),
-});
-
-export const GetOrderHistoryResponseItem = zod.object({
-  id: zod.number(),
-  orderId: zod.number(),
-  changedBy: zod.object({
-    id: zod.number(),
-    name: zod.string(),
-  }),
-  oldStatus: zod.unknown(),
-  newStatus: zod.unknown(),
-  changedAt: zod.string(),
-});
-export const GetOrderHistoryResponse = zod.array(GetOrderHistoryResponseItem);
-
-/**
  * @summary Create a delivery log
  */
 export const CreateDeliveryLogBody = zod.object({
@@ -743,7 +646,6 @@ export const GetFinanceSummaryResponse = zod.object({
   deliveredOrders: zod.number(),
   totalRevenue: zod.string(),
   totalCollected: zod.string(),
-  totalReceivables: zod.string(),
   ordersByStatus: zod.array(
     zod.object({
       status: zod.string(),
@@ -767,7 +669,6 @@ export const GetFinanceSummaryResponse = zod.object({
       openingBalance: zod.string(),
       totalOrders: zod.number(),
       totalCollected: zod.string(),
-      balance: zod.string(),
     }),
   ),
   productSales: zod.array(
@@ -778,92 +679,4 @@ export const GetFinanceSummaryResponse = zod.object({
       totalRevenue: zod.string(),
     }),
   ),
-  dailyOrders: zod.array(
-    zod.object({
-      date: zod.string(),
-      count: zod.number(),
-    }),
-  ),
-});
-
-/**
- * @summary Get company settings (public)
- */
-export const GetSettingsResponse = zod.object({
-  name: zod.string(),
-  address: zod.string(),
-  phone: zod.string(),
-  commercialRegNo: zod.string(),
-  logoUrl: zod.string(),
-});
-
-/**
- * @summary Update company settings (admin only)
- */
-export const UpdateSettingsBody = zod.object({
-  name: zod.string(),
-  address: zod.string(),
-  phone: zod.string(),
-  commercialRegNo: zod.string(),
-  logoUrl: zod.string(),
-});
-
-export const UpdateSettingsResponse = zod.object({
-  name: zod.string(),
-  address: zod.string(),
-  phone: zod.string(),
-  commercialRegNo: zod.string(),
-  logoUrl: zod.string(),
-});
-
-/**
- * @summary Request a presigned URL for file upload (admin only)
- */
-
-export const RequestUploadUrlBody = zod.object({
-  name: zod.string().min(1),
-  size: zod.number().min(1),
-  contentType: zod.string().min(1),
-});
-
-export const RequestUploadUrlResponse = zod.object({
-  uploadURL: zod.string().url(),
-  objectPath: zod.string(),
-  metadata: zod
-    .object({
-      name: zod.string().min(1),
-      size: zod.number().min(1),
-      contentType: zod.string().min(1),
-    })
-    .optional(),
-});
-
-/**
- * @summary Mark an uploaded object as public-read and get serving URL (admin only)
- */
-export const CompleteUploadBody = zod.object({
-  objectPath: zod
-    .string()
-    .describe(
-      "Object path returned by requestUploadUrl (e.g. \/objects\/uploads\/uuid)",
-    ),
-});
-
-export const CompleteUploadResponse = zod.object({
-  serveUrl: zod.string().describe("Public serving URL for the object"),
-  objectPath: zod.string(),
-});
-
-/**
- * @summary Serve an uploaded object entity
- */
-export const GetStorageObjectParams = zod.object({
-  objectPath: zod.coerce.string(),
-});
-
-/**
- * @summary Serve a public asset
- */
-export const GetPublicObjectParams = zod.object({
-  filePath: zod.coerce.string(),
 });

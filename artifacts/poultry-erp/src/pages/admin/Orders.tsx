@@ -17,7 +17,7 @@ import type {
 import { useQueryClient } from "@tanstack/react-query";
 import { Button, Input, Select, Modal, Table, Th, Td, Card, Badge } from "@/components/ui-components";
 import { formatCurrency, formatDate, statusColors, statusLabels } from "@/lib/utils";
-import { Plus, Edit2, Trash2, Eye, PlusCircle, MinusCircle, AlertTriangle } from "lucide-react";
+import { Plus, Edit2, Trash2, Eye, PlusCircle, MinusCircle } from "lucide-react";
 import { Link } from "wouter";
 
 interface ItemRow {
@@ -171,10 +171,6 @@ export default function Orders() {
   };
 
   const isPending = createMut.isPending || updateMut.isPending;
-  const mutError = createMut.error || updateMut.error;
-  const apiErrorMessage = mutError
-    ? ((mutError as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "حدث خطأ، يرجى المحاولة مجدداً")
-    : null;
 
   return (
     <div className="space-y-6">
@@ -224,9 +220,8 @@ export default function Orders() {
                     <Td>
                       <div className="flex gap-2">
                         <Link
-                          href={`/orders/${o.id}`}
-                          title="عرض الطلب"
-                          className="inline-flex items-center justify-center h-11 w-11 rounded-xl bg-transparent hover:bg-secondary/50 text-primary transition-colors"
+                          href={`/agent/orders/${o.id}`}
+                          className="p-2 hover:bg-secondary rounded-lg transition-colors text-primary"
                         >
                           <Eye className="w-4 h-4" />
                         </Link>
@@ -245,7 +240,6 @@ export default function Orders() {
                             if (confirm("هل أنت متأكد من حذف الطلب؟"))
                               deleteMut.mutate({ id: o.id });
                           }}
-                          title="حذف الطلب"
                         >
                           <Trash2 className="w-4 h-4 text-destructive" />
                         </Button>
@@ -269,50 +263,25 @@ export default function Orders() {
       >
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Select
-                label="العميل *"
-                required
-                options={customers.map((c) => ({
-                  label: `${c.name} (${c.phone || ""})`,
-                  value: c.id,
-                }))}
-                value={formData.customerId}
-                onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
-              />
-              {formData.customerId && (() => {
-                const sel = customers.find(c => c.id === parseInt(formData.customerId));
-                return sel ? (
-                  <div className="p-3 bg-secondary/30 rounded-xl text-sm space-y-1">
-                    {sel.phone && <div className="flex justify-between"><span className="text-muted-foreground">الهاتف:</span> <span dir="ltr">{sel.phone}</span></div>}
-                    {sel.location && <div className="flex justify-between"><span className="text-muted-foreground">الموقع:</span> <span>{sel.location}</span></div>}
-                    {sel.openingBalance && parseFloat(sel.openingBalance) !== 0 && (
-                      <div className="flex justify-between"><span className="text-muted-foreground">الرصيد الافتتاحي:</span> <span className="font-bold">{sel.openingBalance}</span></div>
-                    )}
-                  </div>
-                ) : null;
-              })()}
-            </div>
-            <div className="space-y-2">
-              <Select
-                label="المندوب"
-                options={[
-                  { label: "— بدون مندوب —", value: "" },
-                  ...agents.map((a) => ({ label: a.name, value: a.id })),
-                ]}
-                value={formData.agentId}
-                onChange={(e) => setFormData({ ...formData, agentId: e.target.value })}
-              />
-              {formData.agentId && (() => {
-                const sel = agents.find(a => a.id === parseInt(formData.agentId));
-                return sel ? (
-                  <div className="p-3 bg-secondary/30 rounded-xl text-sm space-y-1">
-                    {sel.phone && <div className="flex justify-between"><span className="text-muted-foreground">الهاتف:</span> <span dir="ltr">{sel.phone}</span></div>}
-                    <div className="flex justify-between"><span className="text-muted-foreground">الدور:</span> <span>مندوب توصيل</span></div>
-                  </div>
-                ) : null;
-              })()}
-            </div>
+            <Select
+              label="العميل *"
+              required
+              options={customers.map((c) => ({
+                label: `${c.name} (${c.phone || ""})`,
+                value: c.id,
+              }))}
+              value={formData.customerId}
+              onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
+            />
+            <Select
+              label="المندوب"
+              options={[
+                { label: "— بدون مندوب —", value: "" },
+                ...agents.map((a) => ({ label: a.name, value: a.id })),
+              ]}
+              value={formData.agentId}
+              onChange={(e) => setFormData({ ...formData, agentId: e.target.value })}
+            />
             <Input
               label="تاريخ الطلب *"
               required
@@ -330,27 +299,18 @@ export default function Orders() {
 
           <div className="p-4 border-2 border-border/50 rounded-xl bg-secondary/10 space-y-4">
             <h3 className="font-bold text-foreground mb-2">المنتجات</h3>
-            {formData.items.map((item, index) => {
-              const selectedProduct = products.find(p => p.id.toString() === item.productId);
-              const stockLeft = selectedProduct?.stockQuantity ?? null;
-              return (
-              <div key={index} className="grid grid-cols-12 gap-3 items-end">
-                <div className="col-span-12 sm:col-span-5">
+            {formData.items.map((item, index) => (
+              <div key={index} className="flex flex-wrap md:flex-nowrap gap-3 items-end">
+                <div className="flex-1 min-w-[200px]">
                   <Select
                     label={index === 0 ? "المنتج *" : undefined}
                     required
-                    options={products.map((p) => ({ label: `${p.name} (${p.stockQuantity} متبقية)`, value: p.id }))}
+                    options={products.map((p) => ({ label: p.name, value: p.id }))}
                     value={item.productId}
                     onChange={(e) => handleProductChange(index, e.target.value)}
                   />
-                  {selectedProduct && (
-                    <p className={`text-xs mt-1 ${stockLeft !== null && stockLeft < 10 ? "text-destructive" : "text-muted-foreground"}`}>
-                      المخزون المتاح: <strong>{stockLeft}</strong>
-                      {stockLeft !== null && stockLeft < 10 && <span className="mr-1">⚠ منخفض</span>}
-                    </p>
-                  )}
                 </div>
-                <div className="col-span-5 sm:col-span-3">
+                <div className="w-24">
                   <Input
                     label={index === 0 ? "الكمية *" : undefined}
                     required
@@ -360,7 +320,7 @@ export default function Orders() {
                     onChange={(e) => updateItem(index, "quantity", e.target.value)}
                   />
                 </div>
-                <div className="col-span-5 sm:col-span-3">
+                <div className="w-32">
                   <Input
                     label={index === 0 ? "السعر *" : undefined}
                     required
@@ -370,20 +330,17 @@ export default function Orders() {
                     onChange={(e) => updateItem(index, "unitPrice", e.target.value)}
                   />
                 </div>
-                <div className="col-span-2 sm:col-span-1 flex justify-center pb-1">
-                  {formData.items.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeItem(index)}
-                      className="p-2.5 text-destructive hover:bg-destructive/10 rounded-xl"
-                    >
-                      <MinusCircle className="w-5 h-5" />
-                    </button>
-                  )}
-                </div>
+                {formData.items.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeItem(index)}
+                    className="p-3 text-destructive hover:bg-destructive/10 rounded-xl mb-1"
+                  >
+                    <MinusCircle className="w-5 h-5" />
+                  </button>
+                )}
               </div>
-              );
-            })}
+            ))}
             <Button
               type="button"
               variant="outline"
@@ -400,13 +357,6 @@ export default function Orders() {
             value={formData.notes}
             onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
           />
-
-          {apiErrorMessage && (
-            <div className="flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-xl text-destructive text-sm">
-              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-              <span>{apiErrorMessage}</span>
-            </div>
-          )}
 
           <div className="pt-4 flex justify-end gap-3 border-t border-border">
             <Button

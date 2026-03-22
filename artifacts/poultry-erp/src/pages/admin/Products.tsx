@@ -3,17 +3,11 @@ import { useListProducts, useCreateProduct, useUpdateProduct, useDeleteProduct }
 import { useQueryClient } from "@tanstack/react-query";
 import { Button, Input, Select, Modal, Table, Th, Td, Card, Badge } from "@/components/ui-components";
 import { formatCurrency } from "@/lib/utils";
-import { Plus, Edit2, Trash2, AlertTriangle } from "lucide-react";
+import { Plus, Edit2, Trash2 } from "lucide-react";
+import type { z } from "zod";
+import { ListProductsResponseItem } from "@workspace/api-zod";
 
-interface Product {
-  id: number;
-  name: string;
-  type: "chicks" | "chickens" | "other";
-  unitPrice: string;
-  stockQuantity: number;
-  description?: string | null;
-  createdAt: string;
-}
+type Product = z.infer<typeof ListProductsResponseItem>;
 
 interface ProductFormData {
   name: string;
@@ -22,8 +16,6 @@ interface ProductFormData {
   stockQuantity: number | string;
   description: string;
 }
-
-const LOW_STOCK_THRESHOLD = 10;
 
 export default function Products() {
   const queryClient = useQueryClient();
@@ -64,20 +56,10 @@ export default function Products() {
     else createMut.mutate({ data });
   };
 
-  const lowStockCount = products.filter(p => p.stockQuantity < LOW_STOCK_THRESHOLD).length;
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h2 className="text-2xl font-display font-bold">إدارة المنتجات</h2>
-          {lowStockCount > 0 && (
-            <p className="text-sm text-destructive flex items-center gap-1 mt-1">
-              <AlertTriangle className="w-4 h-4" />
-              {lowStockCount} {lowStockCount === 1 ? "منتج يحتاج" : "منتجات تحتاج"} إعادة تعبئة
-            </p>
-          )}
-        </div>
+        <h2 className="text-2xl font-display font-bold">إدارة المنتجات</h2>
         <Button onClick={openAdd} className="gap-2"><Plus className="w-5 h-5"/> منتج جديد</Button>
       </div>
 
@@ -91,41 +73,31 @@ export default function Products() {
                 <Th>الاسم</Th>
                 <Th>النوع</Th>
                 <Th>سعر الوحدة</Th>
-                <Th>المخزون الحالي</Th>
+                <Th>الكمية المتوفرة</Th>
                 <Th>إجراءات</Th>
               </tr>
             </thead>
             <tbody>
-              {products.map(p => {
-                const isLow = p.stockQuantity < LOW_STOCK_THRESHOLD;
-                return (
-                  <tr key={p.id} className={`hover:bg-secondary/20 transition-colors ${isLow ? "bg-red-50/50" : ""}`}>
-                    <Td className="font-bold">{p.name}</Td>
-                    <Td><Badge variant="soft">{productTypeLabels[p.type]}</Badge></Td>
-                    <Td className="font-bold text-primary">{formatCurrency(p.unitPrice)}</Td>
-                    <Td>
-                      <div className="flex items-center gap-2">
-                        <span className={`font-bold text-lg ${isLow ? "text-destructive" : "text-foreground"}`}>
-                          {p.stockQuantity}
-                        </span>
-                        {isLow && (
-                          <span className="inline-flex items-center gap-1 text-xs font-bold text-destructive bg-destructive/10 px-2 py-0.5 rounded-full">
-                            <AlertTriangle className="w-3 h-3" /> منخفض
-                          </span>
-                        )}
-                      </div>
-                    </Td>
-                    <Td>
-                      <div className="flex gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Edit2 className="w-4 h-4 text-blue-600" /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => { if(confirm('هل أنت متأكد؟')) deleteMut.mutate({ id: p.id }) }}>
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </Td>
-                  </tr>
-                );
-              })}
+              {products.map(p => (
+                <tr key={p.id} className="hover:bg-secondary/20 transition-colors">
+                  <Td className="font-bold">{p.name}</Td>
+                  <Td><Badge variant="soft">{productTypeLabels[p.type]}</Badge></Td>
+                  <Td className="font-bold text-primary">{formatCurrency(p.unitPrice)}</Td>
+                  <Td>
+                    <span className={`font-bold ${p.stockQuantity < 100 ? 'text-destructive' : ''}`}>
+                      {p.stockQuantity}
+                    </span>
+                  </Td>
+                  <Td>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Edit2 className="w-4 h-4 text-blue-600" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => { if(confirm('هل أنت متأكد؟')) deleteMut.mutate({ id: p.id }) }}>
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </Td>
+                </tr>
+              ))}
               {products.length === 0 && (
                 <tr><Td className="text-center py-8 text-muted-foreground">لا يوجد منتجات</Td></tr>
               )}
@@ -144,14 +116,7 @@ export default function Products() {
           />
           <div className="grid grid-cols-2 gap-4">
             <Input label="سعر الوحدة *" required type="number" step="0.01" value={formData.unitPrice} onChange={e => setFormData({...formData, unitPrice: e.target.value})} />
-            <div>
-              <Input label="الكمية في المخزون" type="number" min="0" value={formData.stockQuantity} onChange={e => setFormData({...formData, stockQuantity: e.target.value})} />
-              {parseInt(formData.stockQuantity.toString(), 10) < LOW_STOCK_THRESHOLD && (
-                <p className="text-xs text-destructive mt-1 flex items-center gap-1">
-                  <AlertTriangle className="w-3 h-3" /> أقل من الحد الأدنى ({LOW_STOCK_THRESHOLD})
-                </p>
-              )}
-            </div>
+            <Input label="الكمية الافتتاحية" type="number" value={formData.stockQuantity} onChange={e => setFormData({...formData, stockQuantity: e.target.value})} />
           </div>
           <Input label="وصف (اختياري)" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
           

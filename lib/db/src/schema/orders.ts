@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, timestamp, pgEnum, date, index } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, timestamp, pgEnum, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -21,11 +21,7 @@ export const ordersTable = pgTable("orders", {
   deliveryDate: date("delivery_date"),
   notes: text("notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-}, (t) => [
-  index("orders_agent_id_idx").on(t.agentId),
-  index("orders_status_idx").on(t.status),
-  index("orders_order_date_idx").on(t.orderDate),
-]);
+});
 
 export const insertOrderSchema = createInsertSchema(ordersTable).omit({ id: true, createdAt: true });
 

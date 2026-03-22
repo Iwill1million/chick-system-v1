@@ -27,7 +27,7 @@ router.post("/delivery-logs", authenticateToken, async (req: Request, res: Respo
   const authReq = req as AuthRequest;
   const body = CreateDeliveryLogBody.safeParse(req.body);
   if (!body.success) {
-    res.status(400).json({ message: "بيانات غير صحيحة" });
+    res.status(400).json({ message: "Invalid request" });
     return;
   }
 
@@ -35,24 +35,20 @@ router.post("/delivery-logs", authenticateToken, async (req: Request, res: Respo
 
   const orders = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
   if (!orders[0]) {
-    res.status(404).json({ message: "الطلب غير موجود" });
+    res.status(404).json({ message: "Order not found" });
     return;
   }
 
   const order = orders[0];
 
   if (authReq.user.role !== "admin" && order.agentId !== authReq.user.userId) {
-    res.status(403).json({ message: "غير مصرح لك بتسجيل توصيل هذا الطلب" });
+    res.status(403).json({ message: "You are not authorized to log delivery for this order" });
     return;
   }
 
-  const logAgentId = authReq.user.role === "admin" && order.agentId
-    ? order.agentId
-    : authReq.user.userId;
-
   const inserted = await db.insert(deliveryLogsTable).values({
     orderId,
-    agentId: logAgentId,
+    agentId: authReq.user.userId,
     collectedAmount: body.data.collectedAmount,
     deliveredQuantity: body.data.deliveredQuantity,
     fuelExpense: body.data.fuelExpense,
@@ -77,13 +73,12 @@ router.post("/delivery-logs", authenticateToken, async (req: Request, res: Respo
 
 router.get("/delivery-logs/:orderId", authenticateToken, async (req: Request, res: Response) => {
   const authReq = req as AuthRequest;
-  const orderId = parseInt(String(req.params["orderId"] ?? ""), 10);
-  if (!orderId || isNaN(orderId)) { res.status(400).json({ message: "معرف الطلب غير صالح" }); return; }
+  const orderId = parseInt(String(req.params["orderId"] ?? "0"));
 
   if (authReq.user.role !== "admin") {
     const orders = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
     if (!orders[0] || orders[0].agentId !== authReq.user.userId) {
-      res.status(403).json({ message: "غير مصرح بالوصول" });
+      res.status(403).json({ message: "Access denied" });
       return;
     }
   }

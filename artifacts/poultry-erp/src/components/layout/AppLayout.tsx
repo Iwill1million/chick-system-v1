@@ -18,22 +18,15 @@ import {
   Menu,
   X,
   CheckCheck,
-  Settings,
-  BarChart2,
-  ExternalLink,
-  Moon,
-  Sun,
 } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { cn, formatDate } from "@/lib/utils";
 import { Button, Badge } from "@/components/ui-components";
 import { motion, AnimatePresence } from "framer-motion";
-import { useTheme } from "@/hooks/use-theme";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
-  const [location, navigate] = useLocation();
+  const [location] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const queryClient = useQueryClient();
@@ -54,47 +47,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const unreadCount = notifications.filter((n: NotificationItem) => !n.isRead).length;
 
-  function getNotifPath(n: NotificationItem): string | null {
-    if (n.orderId) {
-      return user?.role === "admin" ? `/orders/${n.orderId}` : `/agent/orders/${n.orderId}`;
-    }
-    return null;
-  }
-
-  function handleNotifClick(n: NotificationItem) {
-    if (!n.isRead) markRead({ data: { ids: [n.id] } });
-    const path = getNotifPath(n);
-    if (path) {
-      setIsNotifOpen(false);
-      navigate(path);
-    }
-  }
-
-  const notifMobileRef = useRef<HTMLDivElement>(null);
-  const notifDesktopRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!isNotifOpen) return;
-    function handleClickOutside(e: MouseEvent) {
-      const target = e.target as Node;
-      const insideMobile = notifMobileRef.current?.contains(target) ?? false;
-      const insideDesktop = notifDesktopRef.current?.contains(target) ?? false;
-      if (!insideMobile && !insideDesktop) {
-        setIsNotifOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isNotifOpen]);
-
   const adminLinks = [
     { href: "/dashboard", label: "لوحة التحكم", icon: LayoutDashboard },
     { href: "/orders", label: "الطلبات", icon: ShoppingCart },
     { href: "/customers", label: "العملاء", icon: Users },
     { href: "/products", label: "المنتجات", icon: Package },
     { href: "/agents", label: "المندوبون", icon: Truck },
-    { href: "/agents/report", label: "تقرير المندوبين", icon: BarChart2 },
-    { href: "/settings", label: "إعدادات الشركة", icon: Settings },
   ];
 
   const agentLinks = [{ href: "/agent/orders", label: "طلباتي", icon: Truck }];
@@ -118,118 +76,37 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </button>
           <span className="font-display font-bold text-xl text-primary">نظام الدواجن</span>
         </div>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={toggleTheme}
-            className="p-2 text-foreground hover:text-primary transition-colors"
-            title={theme === "dark" ? "التبديل للوضع الفاتح" : "التبديل للوضع الداكن"}
-            aria-label={theme === "dark" ? "التبديل للوضع الفاتح" : "التبديل للوضع الداكن"}
-          >
-            {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-          </button>
-        <div ref={notifMobileRef} className="flex items-center gap-2 relative">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setIsNotifOpen(!isNotifOpen)}
             className="relative p-2 text-foreground"
           >
             <Bell className="w-6 h-6" />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center bg-destructive text-white text-[10px] font-bold rounded-full border-2 border-card">
-                {unreadCount}
-              </span>
+              <span className="absolute top-1 right-1 w-3 h-3 bg-destructive rounded-full border-2 border-card" />
             )}
           </button>
-
-          {/* Mobile notification dropdown */}
-          <AnimatePresence>
-            {isNotifOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                className="absolute top-full left-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-card rounded-2xl shadow-xl border border-border overflow-hidden z-50"
-              >
-                <div className="p-3 border-b border-border flex justify-between items-center bg-secondary/30">
-                  <h3 className="font-bold text-sm">الإشعارات</h3>
-                  {unreadCount > 0 && (
-                    <button
-                      onClick={() => markRead({ data: { all: true } })}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold transition-colors"
-                    >
-                      <CheckCheck className="w-3.5 h-3.5" /> تعيين الكل مقروء
-                    </button>
-                  )}
-                </div>
-                <div className="max-h-[60vh] overflow-y-auto">
-                  {notifications.length === 0 ? (
-                    <div className="p-8 text-center text-muted-foreground text-sm">
-                      لا توجد إشعارات حالياً
-                    </div>
-                  ) : (
-                    <div className="flex flex-col">
-                      {notifications.map((n: NotificationItem) => {
-                        const hasLink = !!getNotifPath(n);
-                        return (
-                          <div
-                            key={n.id}
-                            className={cn(
-                              "p-4 border-b border-border/50 last:border-0 transition-colors hover:bg-secondary/30",
-                              !n.isRead && "bg-primary/5",
-                              hasLink ? "cursor-pointer" : "cursor-default"
-                            )}
-                            onClick={() => handleNotifClick(n)}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <p className="text-sm text-foreground leading-snug">{n.message}</p>
-                              {hasLink && <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5" />}
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-1 text-left" dir="ltr">
-                              {formatDate(n.createdAt)}
-                            </p>
-                            {!n.isRead && (
-                              <span className="inline-block mt-1.5 w-1.5 h-1.5 rounded-full bg-primary" />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
         </div>
       </header>
 
       {/* Sidebar (Desktop + Mobile overlay) */}
       <AnimatePresence>
         {isMobileMenuOpen && (
-          <>
-            {/* Backdrop — closes sidebar on tap */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-30 bg-black/40 md:hidden"
-              onClick={() => setIsMobileMenuOpen(false)}
+          <motion.aside
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", bounce: 0, duration: 0.3 }}
+            className="fixed inset-y-0 right-0 z-40 w-72 bg-card border-l border-border flex flex-col md:hidden"
+          >
+            <SidebarContent
+              user={user}
+              links={links}
+              location={location}
+              logout={logout}
+              onClose={() => setIsMobileMenuOpen(false)}
             />
-            <motion.aside
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", bounce: 0, duration: 0.3 }}
-              className="fixed inset-y-0 right-0 z-40 w-72 bg-card border-l border-border flex flex-col md:hidden"
-            >
-              <SidebarContent
-                user={user}
-                links={links}
-                location={location}
-                logout={logout}
-                onClose={() => setIsMobileMenuOpen(false)}
-              />
-            </motion.aside>
-          </>
+          </motion.aside>
         )}
       </AnimatePresence>
 
@@ -248,20 +125,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         {/* Desktop Header */}
         <header className="hidden md:flex items-center justify-between px-8 py-5 bg-card/50 backdrop-blur-md border-b border-border/50 sticky top-0 z-20">
           <h1 className="text-2xl font-display font-bold text-foreground">
-            {links.slice().reverse().find((l) => location.startsWith(l.href))?.label || "نظام الدواجن"}
+            {links.find((l) => location.startsWith(l.href))?.label || "نظام الدواجن"}
           </h1>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={toggleTheme}
-              className="p-2.5 rounded-full bg-secondary text-foreground hover:bg-primary/10 hover:text-primary transition-colors"
-              title={theme === "dark" ? "التبديل للوضع الفاتح" : "التبديل للوضع الداكن"}
-              aria-label={theme === "dark" ? "التبديل للوضع الفاتح" : "التبديل للوضع الداكن"}
-            >
-              {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </button>
-
-          <div ref={notifDesktopRef} className="relative">
+          <div className="relative">
             <button
               onClick={() => setIsNotifOpen(!isNotifOpen)}
               className="p-2.5 rounded-full bg-secondary text-foreground hover:bg-primary/10 hover:text-primary transition-colors relative"
@@ -282,14 +149,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   exit={{ opacity: 0, y: 10, scale: 0.95 }}
                   className="absolute top-full left-0 mt-2 w-80 bg-card rounded-2xl shadow-xl border border-border overflow-hidden z-50"
                 >
-                  <div className="p-3 border-b border-border flex justify-between items-center bg-secondary/30">
-                    <h3 className="font-bold text-sm">الإشعارات</h3>
+                  <div className="p-4 border-b border-border flex justify-between items-center bg-secondary/30">
+                    <h3 className="font-bold">الإشعارات</h3>
                     {unreadCount > 0 && (
                       <button
                         onClick={() => markRead({ data: { all: true } })}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold transition-colors"
+                        className="text-xs text-primary hover:underline flex items-center gap-1"
                       >
-                        <CheckCheck className="w-3.5 h-3.5" /> تعيين الكل مقروء
+                        <CheckCheck className="w-3 h-3" /> تعيين كـ مقروء
                       </button>
                     )}
                   </div>
@@ -300,38 +167,32 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       </div>
                     ) : (
                       <div className="flex flex-col">
-                        {notifications.map((n: NotificationItem) => {
-                          const hasLink = !!getNotifPath(n);
-                          return (
-                            <div
-                              key={n.id}
-                              className={cn(
-                                "p-4 border-b border-border/50 last:border-0 transition-colors hover:bg-secondary/30",
-                                !n.isRead && "bg-primary/5",
-                                hasLink ? "cursor-pointer" : "cursor-default"
-                              )}
-                              onClick={() => handleNotifClick(n)}
+                        {notifications.map((n: NotificationItem) => (
+                          <div
+                            key={n.id}
+                            className={cn(
+                              "p-4 border-b border-border/50 last:border-0 transition-colors hover:bg-secondary/30 cursor-pointer",
+                              !n.isRead && "bg-primary/5"
+                            )}
+                            onClick={() => {
+                              if (!n.isRead) markRead({ data: { ids: [n.id] } });
+                            }}
+                          >
+                            <p className="text-sm text-foreground">{n.message}</p>
+                            <p
+                              className="text-xs text-muted-foreground mt-1 text-left"
+                              dir="ltr"
                             >
-                              <div className="flex items-start justify-between gap-2">
-                                <p className="text-sm text-foreground leading-snug">{n.message}</p>
-                                {hasLink && <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5" />}
-                              </div>
-                              <p className="text-xs text-muted-foreground mt-1 text-left" dir="ltr">
-                                {formatDate(n.createdAt)}
-                              </p>
-                              {!n.isRead && (
-                                <span className="inline-block mt-1.5 w-1.5 h-1.5 rounded-full bg-primary" />
-                              )}
-                            </div>
-                          );
-                        })}
+                              {formatDate(n.createdAt)}
+                            </p>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>
           </div>
         </header>
 
@@ -381,9 +242,7 @@ function SidebarContent({ user, links, location, logout, onClose }: SidebarConte
 
       <nav className="flex-1 overflow-y-auto p-4 flex flex-col gap-2">
         {links.map((link) => {
-          const isActive = link.href === "/agents"
-            ? location === "/agents" || location.startsWith("/agents/") && !location.startsWith("/agents/report")
-            : location.startsWith(link.href);
+          const isActive = location.startsWith(link.href);
           return (
             <Link
               key={link.href}

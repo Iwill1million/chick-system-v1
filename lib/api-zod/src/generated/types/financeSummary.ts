@@ -7,7 +7,6 @@
  */
 import type { AgentPerformance } from "./agentPerformance";
 import type { CustomerBalance } from "./customerBalance";
-import type { DailyOrderCount } from "./dailyOrderCount";
 import type { ProductSale } from "./productSale";
 import type { StatusCount } from "./statusCount";
 
@@ -16,10 +15,8 @@ export interface FinanceSummary {
   deliveredOrders: number;
   totalRevenue: string;
   totalCollected: string;
-  totalReceivables: string;
   ordersByStatus: StatusCount[];
   agentPerformance: AgentPerformance[];
   customerBalances: CustomerBalance[];
   productSales: ProductSale[];
-  dailyOrders: DailyOrderCount[];
 }

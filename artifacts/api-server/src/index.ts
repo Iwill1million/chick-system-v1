@@ -1,6 +1,5 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { seedIfEmpty } from "./lib/seedIfEmpty";
 
 const rawPort = process.env["PORT"];
 
@@ -15,10 +14,6 @@ const port = Number(rawPort);
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
-
-seedIfEmpty().catch((err) => {
-  logger.error({ err }, "Seed failed — continuing startup");
-});
 
 app.listen(port, (err) => {
   if (err) {

@@ -1,7 +1,7 @@
 import { Router, type IRouter, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { productsTable } from "@workspace/db/schema";
-import { eq, lte } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { authenticateToken, requireAdmin } from "../middlewares/auth";
 import { CreateProductBody } from "@workspace/api-zod";
 
@@ -19,20 +19,15 @@ function formatProduct(p: typeof productsTable.$inferSelect) {
   };
 }
 
-const LOW_STOCK_THRESHOLD = 10;
-
-router.get("/products", authenticateToken, async (req: Request, res: Response) => {
-  const { lowStock } = req.query;
-  const products = lowStock === "true"
-    ? await db.select().from(productsTable).where(lte(productsTable.stockQuantity, LOW_STOCK_THRESHOLD - 1))
-    : await db.select().from(productsTable);
+router.get("/products", authenticateToken, async (_req: Request, res: Response) => {
+  const products = await db.select().from(productsTable);
   res.json(products.map(formatProduct));
 });
 
 router.post("/products", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
   const body = CreateProductBody.safeParse(req.body);
   if (!body.success) {
-    res.status(400).json({ message: "بيانات غير صحيحة" });
+    res.status(400).json({ message: "Invalid request" });
     return;
   }
 
@@ -48,22 +43,20 @@ router.post("/products", authenticateToken, requireAdmin, async (req: Request, r
 });
 
 router.get("/products/:id", authenticateToken, async (req: Request, res: Response) => {
-  const id = parseInt(String(req.params["id"] ?? ""), 10);
-  if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
+  const id = parseInt(String(req.params["id"] ?? "0"));
   const products = await db.select().from(productsTable).where(eq(productsTable.id, id));
   if (!products[0]) {
-    res.status(404).json({ message: "المنتج غير موجود" });
+    res.status(404).json({ message: "Product not found" });
     return;
   }
   res.json(formatProduct(products[0]));
 });
 
 router.put("/products/:id", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
-  const id = parseInt(String(req.params["id"] ?? ""), 10);
-  if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
+  const id = parseInt(String(req.params["id"] ?? "0"));
   const body = CreateProductBody.safeParse(req.body);
   if (!body.success) {
-    res.status(400).json({ message: "بيانات غير صحيحة" });
+    res.status(400).json({ message: "Invalid request" });
     return;
   }
 
@@ -76,7 +69,7 @@ router.put("/products/:id", authenticateToken, requireAdmin, async (req: Request
   }).where(eq(productsTable.id, id)).returning();
 
   if (!updated[0]) {
-    res.status(404).json({ message: "المنتج غير موجود" });
+    res.status(404).json({ message: "Product not found" });
     return;
   }
 
@@ -84,8 +77,7 @@ router.put("/products/:id", authenticateToken, requireAdmin, async (req: Request
 });
 
 router.delete("/products/:id", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
-  const id = parseInt(String(req.params["id"] ?? ""), 10);
-  if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
+  const id = parseInt(String(req.params["id"] ?? "0"));
   await db.delete(productsTable).where(eq(productsTable.id, id));
   res.status(204).send();
 });

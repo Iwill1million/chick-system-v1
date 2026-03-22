@@ -53,32 +53,6 @@
   --card-foreground: 160 40% 12%;
 }
 
-.dark {
-  --background: 160 20% 10%;
-  --foreground: 160 10% 92%;
-
-  --primary: 160 65% 45%;
-  --primary-foreground: 0 0% 100%;
-
-  --secondary: 160 18% 18%;
-  --secondary-foreground: 160 40% 70%;
-
-  --muted: 160 14% 16%;
-  --muted-foreground: 160 10% 58%;
-
-  --accent: 38 92% 50%;
-  --accent-foreground: 0 0% 100%;
-
-  --destructive: 0 72% 55%;
-  --destructive-foreground: 0 0% 100%;
-
-  --border: 160 14% 22%;
-  --ring: 160 65% 45%;
-
-  --card: 160 18% 13%;
-  --card-foreground: 160 10% 92%;
-}
-
 @layer base {
   * {
     @apply border-border;
@@ -109,55 +83,4 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--primary) / 0.6);
-}
-
-/* ============================
-   Print / Invoice Styles
-   ============================ */
-@media print {
-  /* Hide all element visibility */
-  body * {
-    visibility: hidden;
-  }
-
-  /* Show only the print invoice and its children */
-  #print-invoice,
-  #print-invoice * {
-    visibility: visible;
-  }
-
-  /* Position the invoice at the top of the page */
-  #print-invoice {
-    position: absolute;
-    top: 0;
-    right: 0;
-    left: 0;
-    width: 100%;
-    background: white;
-    color: black;
-    font-family: 'Cairo', 'Tajawal', Arial, sans-serif;
-    direction: rtl;
-  }
-
-  body {
-    background: white !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-
-  @page {
-    margin: 1.5cm;
-    size: A4 portrait;
-  }
-}
-
-/* The print invoice is hidden on screen */
-#print-invoice {
-  display: none;
-}
-
-@media print {
-  #print-invoice {
-    display: block;
-  }
 }

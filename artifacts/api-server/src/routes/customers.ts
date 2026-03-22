@@ -1,6 +1,6 @@
 import { Router, type IRouter, Request, Response } from "express";
 import { db } from "@workspace/db";
-import { customersTable, customerPaymentsTable } from "@workspace/db/schema";
+import { customersTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { authenticateToken, requireAdmin } from "../middlewares/auth";
 import { CreateCustomerBody } from "@workspace/api-zod";
@@ -27,7 +27,7 @@ router.get("/customers", authenticateToken, async (_req: Request, res: Response)
 router.post("/customers", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
   const body = CreateCustomerBody.safeParse(req.body);
   if (!body.success) {
-    res.status(400).json({ message: "بيانات غير صحيحة" });
+    res.status(400).json({ message: "Invalid request" });
     return;
   }
 
@@ -43,22 +43,20 @@ router.post("/customers", authenticateToken, requireAdmin, async (req: Request, 
 });
 
 router.get("/customers/:id", authenticateToken, async (req: Request, res: Response) => {
-  const id = parseInt(String(req.params["id"] ?? ""), 10);
-  if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
+  const id = parseInt(String(req.params["id"] ?? "0"));
   const customers = await db.select().from(customersTable).where(eq(customersTable.id, id));
   if (!customers[0]) {
-    res.status(404).json({ message: "العميل غير موجود" });
+    res.status(404).json({ message: "Customer not found" });
     return;
   }
   res.json(formatCustomer(customers[0]));
 });
 
 router.put("/customers/:id", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
-  const id = parseInt(String(req.params["id"] ?? ""), 10);
-  if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
+  const id = parseInt(String(req.params["id"] ?? "0"));
   const body = CreateCustomerBody.safeParse(req.body);
   if (!body.success) {
-    res.status(400).json({ message: "بيانات غير صحيحة" });
+    res.status(400).json({ message: "Invalid request" });
     return;
   }
 
@@ -71,7 +69,7 @@ router.put("/customers/:id", authenticateToken, requireAdmin, async (req: Reques
   }).where(eq(customersTable.id, id)).returning();
 
   if (!updated[0]) {
-    res.status(404).json({ message: "العميل غير موجود" });
+    res.status(404).json({ message: "Customer not found" });
     return;
   }
 
@@ -79,9 +77,7 @@ router.put("/customers/:id", authenticateToken, requireAdmin, async (req: Reques
 });
 
 router.delete("/customers/:id", authenticateToken, requireAdmin, async (req: Request, res: Response) => {
-  const id = parseInt(String(req.params["id"] ?? ""), 10);
-  if (!id || isNaN(id)) { res.status(400).json({ message: "معرف غير صالح" }); return; }
-  await db.delete(customerPaymentsTable).where(eq(customerPaymentsTable.customerId, id));
+  const id = parseInt(String(req.params["id"] ?? "0"));
   await db.delete(customersTable).where(eq(customersTable.id, id));
   res.status(204).send();
 });

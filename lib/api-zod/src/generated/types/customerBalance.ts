@@ -12,5 +12,4 @@ export interface CustomerBalance {
   openingBalance: string;
   totalOrders: number;
   totalCollected: string;
-  balance: string;
 }
