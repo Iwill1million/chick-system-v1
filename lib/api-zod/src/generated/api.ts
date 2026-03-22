@@ -767,6 +767,7 @@ export const GetFinanceSummaryResponse = zod.object({
       openingBalance: zod.string(),
       totalOrders: zod.number(),
       totalCollected: zod.string(),
+      balance: zod.string(),
     }),
   ),
   productSales: zod.array(
@@ -775,6 +776,12 @@ export const GetFinanceSummaryResponse = zod.object({
       productName: zod.string(),
       unitsSold: zod.number(),
       totalRevenue: zod.string(),
+    }),
+  ),
+  dailyOrders: zod.array(
+    zod.object({
+      date: zod.string(),
+      count: zod.number(),
     }),
   ),
 });

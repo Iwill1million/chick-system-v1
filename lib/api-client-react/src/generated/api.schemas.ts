@@ -283,6 +283,7 @@ export interface CustomerBalance {
   openingBalance: string;
   totalOrders: number;
   totalCollected: string;
+  balance: string;
 }
 
 export interface ProductSale {
@@ -290,6 +291,11 @@ export interface ProductSale {
   productName: string;
   unitsSold: number;
   totalRevenue: string;
+}
+
+export interface DailyOrderCount {
+  date: string;
+  count: number;
 }
 
 export interface FinanceSummary {
@@ -302,6 +308,7 @@ export interface FinanceSummary {
   agentPerformance: AgentPerformance[];
   customerBalances: CustomerBalance[];
   productSales: ProductSale[];
+  dailyOrders: DailyOrderCount[];
 }
 
 export type CustomerPaymentCreatedBy = {
