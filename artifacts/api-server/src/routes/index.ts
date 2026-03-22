@@ -10,6 +10,7 @@ import deliveryLogsRouter from "./deliveryLogs";
 import notificationsRouter from "./notifications";
 import financeRouter from "./finance";
 import settingsRouter from "./settings";
+import storageRouter from "./storage";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(deliveryLogsRouter);
 router.use(notificationsRouter);
 router.use(financeRouter);
 router.use(settingsRouter);
+router.use(storageRouter);
 
 export default router;

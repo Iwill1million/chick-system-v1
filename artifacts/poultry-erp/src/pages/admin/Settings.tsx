@@ -1,7 +1,18 @@
-import { useState, useEffect } from "react";
-import { Button, Card, Input } from "@/components/ui-components";
+import { useState, useEffect, useRef } from "react";
+import { Button, Card } from "@/components/ui-components";
 import { customFetch } from "@workspace/api-client-react";
-import { Building2, Phone, MapPin, FileText, Image, Save, CheckCircle2 } from "lucide-react";
+import { useUpload } from "@workspace/object-storage-web";
+import {
+  Building2,
+  Phone,
+  MapPin,
+  FileText,
+  Image,
+  Save,
+  CheckCircle2,
+  Upload,
+  Loader2,
+} from "lucide-react";
 
 interface CompanySettings {
   name: string;
@@ -12,17 +23,15 @@ interface CompanySettings {
 }
 
 async function fetchSettings(): Promise<CompanySettings> {
-  const res = await customFetch<CompanySettings>("/api/settings", { method: "GET" });
-  return res;
+  return customFetch<CompanySettings>("/api/settings", { method: "GET" });
 }
 
 async function saveSettings(data: CompanySettings): Promise<CompanySettings> {
-  const res = await customFetch<CompanySettings>("/api/settings", {
+  return customFetch<CompanySettings>("/api/settings", {
     method: "PUT",
     body: JSON.stringify(data),
     headers: { "Content-Type": "application/json" },
   });
-  return res;
 }
 
 export default function Settings() {
@@ -37,6 +46,20 @@ export default function Settings() {
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { uploadFile, isUploading } = useUpload({
+    onSuccess: (response) => {
+      const serveUrl = `/api/storage${response.objectPath}`;
+      setForm((prev) => ({ ...prev, logoUrl: serveUrl }));
+      setSaved(false);
+      setUploadError(null);
+    },
+    onError: (err) => {
+      setUploadError(`فشل رفع الشعار: ${err.message}`);
+    },
+  });
 
   useEffect(() => {
     fetchSettings()
@@ -53,6 +76,14 @@ export default function Settings() {
   const handleChange = (field: keyof CompanySettings, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     setSaved(false);
+  };
+
+  const handleLogoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadError(null);
+    await uploadFile(file);
+    e.target.value = "";
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -85,7 +116,6 @@ export default function Settings() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
-        {/* Company identity */}
         <Card className="p-6 space-y-4">
           <h3 className="font-bold text-base flex items-center gap-2">
             <Building2 className="w-5 h-5 text-primary" /> هوية الشركة
@@ -152,43 +182,74 @@ export default function Settings() {
           </div>
         </Card>
 
-        {/* Logo */}
         <Card className="p-6 space-y-4">
           <h3 className="font-bold text-base flex items-center gap-2">
             <Image className="w-5 h-5 text-primary" /> شعار الشركة
           </h3>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">رابط الشعار (URL)</label>
-            <input
-              type="url"
-              className="w-full bg-secondary/40 border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-              placeholder="https://example.com/logo.png"
-              dir="ltr"
-              value={form.logoUrl}
-              onChange={(e) => handleChange("logoUrl", e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              أدخل رابط مباشر لصورة الشعار (PNG أو SVG يفضّل). يُنصح باستخدام شعار شفّاف (PNG).
-            </p>
-          </div>
-
-          {form.logoUrl && (
-            <div className="mt-3 p-3 bg-secondary/30 rounded-xl border border-border flex items-center gap-3">
-              <img
-                src={form.logoUrl}
-                alt="معاينة الشعار"
-                className="h-14 w-auto object-contain"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = "none";
-                }}
-              />
-              <span className="text-xs text-muted-foreground">معاينة الشعار</span>
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    جاري رفع الشعار...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    رفع صورة الشعار
+                  </>
+                )}
+              </button>
+              <span className="text-xs text-muted-foreground">PNG أو SVG موصى به</span>
             </div>
-          )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleLogoFileChange}
+            />
+
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">أو أدخل رابط الشعار مباشرةً</label>
+              <input
+                type="url"
+                className="w-full bg-secondary/40 border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                placeholder="https://example.com/logo.png"
+                dir="ltr"
+                value={form.logoUrl}
+                onChange={(e) => handleChange("logoUrl", e.target.value)}
+              />
+            </div>
+
+            {uploadError && (
+              <p className="text-xs text-destructive">{uploadError}</p>
+            )}
+
+            {form.logoUrl && (
+              <div className="mt-3 p-3 bg-secondary/30 rounded-xl border border-border flex items-center gap-3">
+                <img
+                  src={form.logoUrl}
+                  alt="معاينة الشعار"
+                  className="h-14 w-auto object-contain"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = "none";
+                  }}
+                />
+                <span className="text-xs text-muted-foreground">معاينة الشعار</span>
+              </div>
+            )}
+          </div>
         </Card>
 
-        {/* Invoice Preview Hint */}
         <Card className="p-4 bg-primary/5 border-primary/20">
           <p className="text-sm text-primary font-medium">
             ستظهر هذه المعلومات في رأس الفاتورة المطبوعة فوراً بعد الحفظ.
