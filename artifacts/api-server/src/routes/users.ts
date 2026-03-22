@@ -83,6 +83,15 @@ router.put("/users/:id", authenticateToken, requireAdmin, async (req: Request, r
   }
 
   const { name, phone, username, password, role } = body.data;
+
+  if (username !== undefined) {
+    const conflict = await db.select().from(usersTable).where(eq(usersTable.username, username));
+    if (conflict.length > 0 && conflict[0].id !== id) {
+      res.status(409).json({ message: "اسم المستخدم مستخدم بالفعل" });
+      return;
+    }
+  }
+
   const updates: Partial<typeof usersTable.$inferInsert> = {};
 
   if (name !== undefined) updates.name = name;
