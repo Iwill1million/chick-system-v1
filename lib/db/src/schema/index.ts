@@ -8,3 +8,4 @@ export * from "./orderHistory";
 export * from "./deliveryLogs";
 export * from "./notifications";
 export * from "./companySettings";
+export * from "./whatsappLogs";

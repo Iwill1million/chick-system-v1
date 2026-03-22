@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button, Card } from "@/components/ui-components";
 import { customFetch } from "@workspace/api-client-react";
 import {
@@ -11,6 +12,10 @@ import {
   CheckCircle2,
   Upload,
   Loader2,
+  MessageCircle,
+  Wifi,
+  WifiOff,
+  ShieldCheck,
 } from "lucide-react";
 
 interface CompanySettings {
@@ -33,6 +38,21 @@ async function saveSettings(data: CompanySettings): Promise<CompanySettings> {
   });
 }
 
+interface WhatsappConfigStatus {
+  configured: boolean;
+  hasSid: boolean;
+  hasToken: boolean;
+  hasFrom: boolean;
+  fromNumber: string | null;
+}
+
+interface PingResult {
+  ok: boolean;
+  accountName?: string;
+  status?: string;
+  error?: string;
+}
+
 export default function Settings() {
   const [form, setForm] = useState<CompanySettings>({
     name: "",
@@ -46,7 +66,20 @@ export default function Settings() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [pingResult, setPingResult] = useState<PingResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { data: waStatus } = useQuery<WhatsappConfigStatus>({
+    queryKey: ["/api/whatsapp/config-status"],
+    queryFn: () => customFetch<WhatsappConfigStatus>("/api/whatsapp/config-status"),
+    staleTime: 30000,
+  });
+
+  const pingMut = useMutation({
+    mutationFn: () => customFetch<PingResult>("/api/whatsapp/test-ping", { method: "POST" }),
+    onSuccess: (data) => setPingResult(data),
+    onError: (err: Error) => setPingResult({ ok: false, error: err.message }),
+  });
 
   const uploadLogo = async (file: File): Promise<string> => {
     const token = localStorage.getItem("poultry_erp_token") ?? "";
@@ -281,6 +314,86 @@ export default function Settings() {
           <p className="text-sm text-primary font-medium">
             ستظهر هذه المعلومات في رأس الفاتورة المطبوعة فوراً بعد الحفظ.
           </p>
+        </Card>
+
+        {/* WhatsApp Settings Section */}
+        <Card className="p-6 space-y-4">
+          <h3 className="font-bold text-base flex items-center gap-2">
+            <MessageCircle className="w-5 h-5 text-green-600" /> إعدادات واتساب (Twilio)
+          </h3>
+
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              يتم إعداد بيانات Twilio عبر متغيرات البيئة على الخادم (وليس في قاعدة البيانات) لضمان الأمان.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {[
+                { label: "Account SID", key: "hasSid" },
+                { label: "Auth Token", key: "hasToken" },
+                { label: "رقم المرسِل", key: "hasFrom" },
+              ].map(({ label, key }) => {
+                const isSet = waStatus?.[key as keyof WhatsappConfigStatus] as boolean | undefined;
+                return (
+                  <div
+                    key={key}
+                    className={`flex items-center gap-2 p-3 rounded-xl border text-sm ${
+                      isSet
+                        ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                        : "bg-red-50 border-red-200 text-red-700"
+                    }`}
+                  >
+                    {isSet
+                      ? <ShieldCheck className="w-4 h-4 shrink-0" />
+                      : <WifiOff className="w-4 h-4 shrink-0" />
+                    }
+                    <span className="font-medium">{label}</span>
+                    <span className="mr-auto text-xs">{isSet ? "مضبوط ✓" : "غير مضبوط"}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {waStatus?.fromNumber && (
+              <p className="text-xs text-muted-foreground" dir="ltr">
+                رقم الإرسال: <span className="font-mono font-bold">{waStatus.fromNumber}</span>
+              </p>
+            )}
+
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => { setPingResult(null); pingMut.mutate(); }}
+                disabled={pingMut.isPending || !waStatus?.configured}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-green-400 bg-green-50 hover:bg-green-100 text-green-800 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {pingMut.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Wifi className="w-4 h-4" />
+                )}
+                اختبار الاتصال بـ Twilio
+              </button>
+
+              {pingResult && (
+                <span className={`text-sm font-medium ${pingResult.ok ? "text-emerald-600" : "text-destructive"}`}>
+                  {pingResult.ok
+                    ? `✓ متصل — ${pingResult.accountName ?? ""} (${pingResult.status ?? ""})`
+                    : `✗ ${pingResult.error ?? "فشل الاتصال"}`
+                  }
+                </span>
+              )}
+            </div>
+
+            {!waStatus?.configured && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs">
+                لتفعيل إشعارات واتساب، يجب إضافة متغيرات البيئة التالية في لوحة الإعدادات:<br />
+                <span className="font-mono">TWILIO_ACCOUNT_SID</span> ·{" "}
+                <span className="font-mono">TWILIO_AUTH_TOKEN</span> ·{" "}
+                <span className="font-mono">TWILIO_WHATSAPP_FROM</span>
+              </div>
+            )}
+          </div>
         </Card>
 
         {error && (

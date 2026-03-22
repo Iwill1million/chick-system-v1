@@ -100,8 +100,22 @@ All endpoints are prefixed with `/api`.
 ### Finance (admin only)
 - `GET /api/finance/summary` — Finance summary with optional `?from=YYYY-MM-DD&to=YYYY-MM-DD` date range. Includes `totalReceivables` (all-time customer balances).
 
+### WhatsApp (Twilio) — admin only
+- `GET /api/whatsapp/config-status` — Check if TWILIO_* env vars are configured
+- `POST /api/whatsapp/test-ping` — Test Twilio API connectivity
+- `POST /api/whatsapp/order-confirmation/:orderId` — Send order confirmation to customer
+- `POST /api/whatsapp/delivery-notice/:orderId` — Send delivery notice to customer
+- `POST /api/whatsapp/customer-statement/:customerId` — Send statement summary to customer
+- `GET /api/whatsapp/logs/order/:orderId` — WhatsApp log for an order
+- `GET /api/whatsapp/logs/customer/:customerId` — WhatsApp log for a customer (last 20)
+
+Required environment variables (Replit Secrets):
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `TWILIO_WHATSAPP_FROM` — e.g. `whatsapp:+14155238886`
+
 ## Database Schema
-Tables: `users`, `customers`, `customer_payments`, `products`, `orders`, `order_items`, `order_history`, `delivery_logs`, `notifications`
+Tables: `users`, `customers`, `customer_payments`, `products`, `orders`, `order_items`, `order_history`, `delivery_logs`, `notifications`, `whatsapp_logs`
 
 Indexes:
 - `orders.agent_id`, `orders.status`, `orders.order_date`

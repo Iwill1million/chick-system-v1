@@ -4,8 +4,25 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { customFetch } from "@workspace/api-client-react";
 import { Button, Input, Modal, Card } from "@/components/ui-components";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { ArrowRight, Plus, Trash2, Printer, TrendingDown, TrendingUp, Wallet, FileText } from "lucide-react";
+import { ArrowRight, Plus, Trash2, Printer, TrendingDown, TrendingUp, Wallet, FileText, MessageCircle, Send, CheckCircle2, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
+
+interface WhatsappLog {
+  id: number;
+  customerId: number;
+  orderId: number | null;
+  messageType: "order_confirmation" | "delivery_notice" | "customer_statement";
+  status: "sent" | "failed";
+  toPhone: string;
+  errorMessage: string | null;
+  sentAt: string;
+}
+
+const messageTypeLabels: Record<string, string> = {
+  order_confirmation: "تأكيد الطلب",
+  delivery_notice: "إشعار التسليم",
+  customer_statement: "كشف الحساب",
+};
 
 interface CustomerInfo {
   id: number;
@@ -73,12 +90,36 @@ export default function CustomerStatement() {
 
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [paymentForm, setPaymentForm] = useState({ amount: "", paymentDate: new Date().toISOString().slice(0, 10), notes: "" });
+  const [waSendResult, setWaSendResult] = useState<{ ok: boolean; error?: string } | null>(null);
 
   const queryKey = [`/api/customers/${customerId}/statement`];
   const { data, isLoading } = useQuery({
     queryKey,
     queryFn: () => customFetch<StatementResponse>(`/api/customers/${customerId}/statement`),
     enabled: !!customerId,
+  });
+
+  const waLogsKey = [`/api/whatsapp/logs/customer/${customerId}`];
+  const { data: waLogs = [] } = useQuery<WhatsappLog[]>({
+    queryKey: waLogsKey,
+    queryFn: () => customFetch<WhatsappLog[]>(`/api/whatsapp/logs/customer/${customerId}`),
+    enabled: !!customerId,
+  });
+
+  const sendStatementMut = useMutation({
+    mutationFn: () =>
+      customFetch<{ ok: boolean; toPhone?: string; error?: string }>(
+        `/api/whatsapp/customer-statement/${customerId}`,
+        { method: "POST" }
+      ),
+    onSuccess: (d) => {
+      setWaSendResult({ ok: d.ok, error: d.error });
+      queryClient.invalidateQueries({ queryKey: waLogsKey });
+    },
+    onError: (err: Error) => {
+      setWaSendResult({ ok: false, error: err.message });
+      queryClient.invalidateQueries({ queryKey: waLogsKey });
+    },
   });
 
   const addPaymentMut = useMutation({
@@ -125,7 +166,24 @@ export default function CustomerStatement() {
             <p className="text-muted-foreground text-sm">{customer.name}</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {!customer.phone ? (
+            <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-sm">
+              <AlertCircle className="w-4 h-4" /> لا يوجد رقم هاتف
+            </div>
+          ) : (
+            <button
+              onClick={() => { setWaSendResult(null); sendStatementMut.mutate(); }}
+              disabled={sendStatementMut.isPending}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-green-500 bg-green-50 hover:bg-green-100 text-green-800 text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {sendStatementMut.isPending
+                ? <span className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
+                : <Send className="w-4 h-4" />
+              }
+              إرسال الكشف واتساب
+            </button>
+          )}
           <Button variant="outline" onClick={handlePrint} className="gap-2">
             <Printer className="w-4 h-4" /> طباعة
           </Button>
@@ -133,6 +191,14 @@ export default function CustomerStatement() {
             <Plus className="w-4 h-4" /> تسجيل دفعة
           </Button>
         </div>
+        {waSendResult && (
+          <div className={`mt-2 text-sm font-medium flex items-center gap-1.5 ${waSendResult.ok ? "text-emerald-700" : "text-destructive"}`}>
+            {waSendResult.ok
+              ? <><CheckCircle2 className="w-4 h-4" /> تم إرسال كشف الحساب بنجاح</>
+              : <><AlertCircle className="w-4 h-4" /> فشل الإرسال: {waSendResult.error}</>
+            }
+          </div>
+        )}
       </div>
 
       <div className="hidden print:block mb-6">
@@ -268,6 +334,32 @@ export default function CustomerStatement() {
           الرصيد الإجمالي المستحق: {formatCurrency(summary.currentBalance)}
         </p>
       </div>
+
+      {/* WhatsApp Log */}
+      {waLogs.length > 0 && (
+        <Card className="p-5 print:hidden">
+          <h3 className="font-bold text-base mb-4 flex items-center gap-2 text-muted-foreground">
+            <MessageCircle className="w-4 h-4" /> سجل رسائل واتساب
+          </h3>
+          <div className="space-y-2">
+            {waLogs.map(log => (
+              <div key={log.id} className="flex items-center justify-between p-3 bg-secondary/20 rounded-xl text-sm">
+                <div className="flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full ${log.status === "sent" ? "bg-emerald-500" : "bg-destructive"}`} />
+                  <span className="font-medium">{messageTypeLabels[log.messageType] ?? log.messageType}</span>
+                  {log.errorMessage && (
+                    <span className="text-xs text-destructive">— {log.errorMessage}</span>
+                  )}
+                </div>
+                <div className="text-xs text-muted-foreground text-left" dir="ltr">
+                  <div>{log.toPhone}</div>
+                  <div>{new Date(log.sentAt).toLocaleString("ar-EG")}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Modal
         isOpen={isPaymentModalOpen}

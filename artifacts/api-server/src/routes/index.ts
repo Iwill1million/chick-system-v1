@@ -11,6 +11,7 @@ import notificationsRouter from "./notifications";
 import financeRouter from "./finance";
 import settingsRouter from "./settings";
 import storageRouter from "./storage";
+import whatsappRouter from "./whatsapp";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(notificationsRouter);
 router.use(financeRouter);
 router.use(settingsRouter);
 router.use(storageRouter);
+router.use(whatsappRouter);
 
 export default router;
