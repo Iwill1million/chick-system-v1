@@ -1192,6 +1192,9 @@ components:
         status:
           type: string
           enum: [pending, preparing, delivering, delivered, cancelled]
+        reason:
+          type: string
+          description: Optional reason for the status change (e.g. cancellation reason)
       required:
         - status
 
@@ -1230,6 +1233,10 @@ components:
           $ref: "#/components/schemas/OrderWithDetailsStatus"
         newStatus:
           $ref: "#/components/schemas/OrderWithDetailsStatus"
+        notes:
+          type: string
+          nullable: true
+          description: Optional notes associated with this status change (e.g. cancellation reason)
         changedAt:
           type: string
       required:

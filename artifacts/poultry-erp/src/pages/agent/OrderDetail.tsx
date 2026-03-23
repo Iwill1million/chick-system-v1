@@ -4,9 +4,10 @@ import { useGetOrder, useUpdateOrderStatus, useCreateDeliveryLog, useGetDelivery
 import { useQueryClient } from "@tanstack/react-query";
 import { Button, Card, Badge, Modal, Input } from "@/components/ui-components";
 import { formatCurrency, formatDate, statusColors, statusLabels } from "@/lib/utils";
-import { MapPin, Phone, Calendar, Package, ArrowRight, Truck, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { MapPin, Phone, Calendar, Package, ArrowRight, Truck, CheckCircle2, XCircle } from "lucide-react";
 import { Link } from "wouter";
 import OrderHistoryTimeline from "@/components/OrderHistoryTimeline";
+import CancelOrderModal from "@/components/CancelOrderModal";
 
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
@@ -167,34 +168,14 @@ export default function OrderDetail() {
         )}
       </div>
 
-      {/* Cancel Confirmation Modal */}
-      <Modal isOpen={isCancelModalOpen} onClose={() => { setIsCancelModalOpen(false); setCancelReason(""); }} title="تأكيد إلغاء الطلب">
-        <div className="space-y-4">
-          <div className="flex items-start gap-3 p-4 bg-destructive/5 border border-destructive/20 rounded-xl">
-            <AlertTriangle className="w-5 h-5 text-destructive mt-0.5 shrink-0" />
-            <div className="text-sm">
-              <p className="font-bold text-destructive mb-1">هل أنت متأكد من إلغاء الطلب؟</p>
-              <p className="text-muted-foreground">سيتم إعادة كميات المنتجات المحجوزة إلى المخزون تلقائياً ولا يمكن التراجع عن هذا الإجراء.</p>
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1.5">سبب الإلغاء <span className="text-muted-foreground font-normal">(اختياري)</span></label>
-            <textarea
-              value={cancelReason}
-              onChange={e => setCancelReason(e.target.value)}
-              placeholder="أدخل سبب الإلغاء..."
-              rows={3}
-              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-destructive/30 focus:border-destructive/50"
-            />
-          </div>
-          <div className="flex gap-3 pt-2">
-            <Button variant="outline" className="flex-1" onClick={() => { setIsCancelModalOpen(false); setCancelReason(""); }}>تراجع</Button>
-            <Button className="flex-1 bg-destructive hover:bg-destructive/90 text-white" onClick={handleCancelConfirm} isLoading={statusMut.isPending}>
-              <XCircle className="w-4 h-4 ml-2" /> تأكيد الإلغاء
-            </Button>
-          </div>
-        </div>
-      </Modal>
+      <CancelOrderModal
+        isOpen={isCancelModalOpen}
+        onClose={() => setIsCancelModalOpen(false)}
+        reason={cancelReason}
+        onReasonChange={setCancelReason}
+        onConfirm={handleCancelConfirm}
+        isLoading={statusMut.isPending}
+      />
 
       {/* Delivery Log Modal */}
       <Modal isOpen={isLogModalOpen} onClose={() => setIsLogModalOpen(false)} title="تسجيل بيانات التوصيل">
