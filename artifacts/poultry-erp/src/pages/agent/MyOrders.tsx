@@ -3,7 +3,7 @@ import { useListOrders, useGetMe } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import { Card, Badge } from "@/components/ui-components";
 import { formatCurrency, formatDate, statusColors, statusLabels } from "@/lib/utils";
-import { MapPin, Phone, Clock, ChevronLeft, PackageCheck, Loader2, Banknote } from "lucide-react";
+import { MapPin, Phone, Clock, ChevronLeft, PackageCheck, Loader2, Banknote, ListChecks } from "lucide-react";
 import { motion } from "framer-motion";
 
 function orderTotal(order: { items: { quantity: number; unitPrice: string }[] }) {
@@ -21,30 +21,32 @@ export default function MyOrders() {
     { id: "preparing", label: "تجهيز" },
     { id: "delivering", label: "توصيل" },
     { id: "delivered", label: "مكتملة" },
+    { id: "cancelled", label: "ملغية" },
   ];
 
-  const todayStr = new Date().toDateString();
-  const todayOrders = orders.filter((o) => new Date(o.orderDate).toDateString() === todayStr);
-
-  const totalCount = todayOrders.length;
-  const completedCount = todayOrders.filter((o) => o.status === "delivered").length;
-  const remainingCount = todayOrders.filter(
-    (o) => !["delivered", "cancelled"].includes(o.status)
-  ).length;
-  const collectedAmount = todayOrders
-    .filter((o) => o.status === "delivered")
+  const totalCount = orders.length;
+  const activeCount = orders.filter(o => ["pending", "preparing", "delivering"].includes(o.status)).length;
+  const completedCount = orders.filter(o => o.status === "delivered").length;
+  const completedValue = orders
+    .filter(o => o.status === "delivered")
     .reduce((sum, o) => sum + orderTotal(o), 0);
 
-  const progressPercent =
-    totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+  const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   const statCards = [
     {
       label: "إجمالي الطلبات",
       value: totalCount,
-      icon: PackageCheck,
+      icon: ListChecks,
       color: "text-primary",
       bg: "bg-primary/10",
+    },
+    {
+      label: "قيد التنفيذ",
+      value: activeCount,
+      icon: Loader2,
+      color: "text-amber-600",
+      bg: "bg-amber-100",
     },
     {
       label: "مكتملة",
@@ -54,58 +56,52 @@ export default function MyOrders() {
       bg: "bg-emerald-100",
     },
     {
-      label: "متبقية",
-      value: remainingCount,
-      icon: Loader2,
-      color: "text-amber-600",
-      bg: "bg-amber-100",
-    },
-    {
-      label: "المحصّل",
-      value: formatCurrency(collectedAmount),
+      label: "قيمة المكتملة",
+      value: formatCurrency(completedValue),
       icon: Banknote,
       color: "text-blue-600",
       bg: "bg-blue-100",
     },
   ];
 
-  const filteredOrders = activeTab === "all" ? orders : orders.filter((o) => o.status === activeTab);
+  const filteredOrders = activeTab === "all" ? orders : orders.filter(o => o.status === activeTab);
 
   if (isLoading) return <div className="p-8 text-center animate-pulse">جاري تحميل الطلبات...</div>;
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
-      <h2 className="text-2xl font-display font-bold">المهام اليومية</h2>
+      <h2 className="text-2xl font-display font-bold">طلباتي</h2>
 
       {/* Stats Summary */}
       <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="space-y-3"
-        >
-          <div className="grid grid-cols-2 gap-3">
-            {statCards.map((card, i) => (
-              <motion.div
-                key={card.label}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.05 }}
-              >
-                <Card className="p-4 flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${card.bg}`}>
-                    <card.icon className={`w-5 h-5 ${card.color}`} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground">{card.label}</p>
-                    <p className={`text-lg font-bold truncate ${card.color}`}>{card.value}</p>
-                  </div>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="space-y-3"
+      >
+        <div className="grid grid-cols-2 gap-3">
+          {statCards.map((card, i) => (
+            <motion.div
+              key={card.label}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: i * 0.05 }}
+            >
+              <Card className="p-4 flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${card.bg}`}>
+                  <card.icon className={`w-5 h-5 ${card.color}`} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">{card.label}</p>
+                  <p className={`text-lg font-bold truncate ${card.color}`}>{card.value}</p>
+                </div>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
 
-          {/* Progress bar */}
+        {/* Progress bar */}
+        {totalCount > 0 && (
           <Card className="p-4 space-y-2">
             <div className="flex justify-between items-center text-sm">
               <span className="font-semibold text-foreground">نسبة الإنجاز</span>
@@ -125,23 +121,34 @@ export default function MyOrders() {
               {completedCount} من {totalCount} طلب{totalCount !== 1 ? "اً" : ""} مكتمل
             </p>
           </Card>
+        )}
       </motion.div>
 
       {/* Tabs */}
       <div className="flex overflow-x-auto pb-2 gap-2 hide-scrollbar">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`whitespace-nowrap px-4 py-2 rounded-full font-bold text-sm transition-all ${
-              activeTab === tab.id
-                ? "bg-primary text-primary-foreground shadow-md"
-                : "bg-card text-muted-foreground border border-border hover:bg-secondary"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+        {tabs.map(tab => {
+          const count = tab.id === "all"
+            ? orders.length
+            : orders.filter(o => o.status === tab.id).length;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`whitespace-nowrap px-4 py-2 rounded-full font-bold text-sm transition-all flex items-center gap-1.5 ${
+                activeTab === tab.id
+                  ? "bg-primary text-primary-foreground shadow-md"
+                  : "bg-card text-muted-foreground border border-border hover:bg-secondary"
+              }`}
+            >
+              {tab.label}
+              {count > 0 && (
+                <span className={`text-xs rounded-full px-1.5 py-0.5 font-bold ${activeTab === tab.id ? "bg-white/20 text-white" : "bg-secondary text-muted-foreground"}`}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* Order List */}

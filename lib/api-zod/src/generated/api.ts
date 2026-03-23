@@ -696,6 +696,7 @@ export const CreateDeliveryLogBody = zod.object({
   notes: zod.string().optional(),
   paymentMethod: zod.enum(["cash", "transfer", "wallet"]).optional(),
   paymentImageUrl: zod.string().optional(),
+  noCollectionReason: zod.string().optional(),
   items: zod.array(DeliveryLogItemInput).optional(),
   expenses: zod.array(DeliveryLogExpenseInput).optional(),
 });
@@ -733,6 +734,7 @@ export const GetDeliveryLogsResponseItem = zod.object({
   notes: zod.string().nullish(),
   paymentMethod: zod.enum(["cash", "transfer", "wallet"]).nullish(),
   paymentImageUrl: zod.string().nullish(),
+  noCollectionReason: zod.string().nullish(),
   items: zod.array(DeliveryLogItemResponse).optional(),
   expenses: zod.array(DeliveryLogExpenseResponse).optional(),
   loggedAt: zod.string(),

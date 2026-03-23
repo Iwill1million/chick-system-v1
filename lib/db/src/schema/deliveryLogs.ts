@@ -19,6 +19,7 @@ export const deliveryLogsTable = pgTable("delivery_logs", {
   notes: text("notes"),
   paymentMethod: paymentMethodEnum("payment_method").notNull().default("cash"),
   paymentImageUrl: text("payment_image_url"),
+  noCollectionReason: text("no_collection_reason"),
   loggedAt: timestamp("logged_at").notNull().defaultNow(),
 });
 

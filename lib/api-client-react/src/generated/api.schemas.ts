@@ -254,6 +254,7 @@ export interface DeliveryLog {
   notes?: string | null;
   paymentMethod?: "cash" | "transfer" | "wallet" | null;
   paymentImageUrl?: string | null;
+  noCollectionReason?: string | null;
   items?: DeliveryLogItemResponse[];
   expenses?: DeliveryLogExpenseResponse[];
   loggedAt: string;
@@ -280,6 +281,7 @@ export interface CreateDeliveryLogRequest {
   notes?: string;
   paymentMethod?: "cash" | "transfer" | "wallet";
   paymentImageUrl?: string;
+  noCollectionReason?: string;
   items?: DeliveryLogItemInput[];
   expenses?: DeliveryLogExpenseInput[];
 }

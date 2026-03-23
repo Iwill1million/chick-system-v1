@@ -4,7 +4,7 @@ import { useGetOrder, useUpdateOrderStatus, useCreateDeliveryLog, useGetDelivery
 import { useQueryClient } from "@tanstack/react-query";
 import { Button, Card, Badge, Modal } from "@/components/ui-components";
 import { formatCurrency, formatDate, statusColors, statusLabels } from "@/lib/utils";
-import { MapPin, Phone, Calendar, Package, ArrowRight, Truck, CheckCircle2, XCircle, Plus, Trash2, Upload, Image as ImageIcon, Banknote, Wallet, CreditCard } from "lucide-react";
+import { MapPin, Phone, Calendar, Package, ArrowRight, Truck, CheckCircle2, XCircle, Plus, Trash2, Upload, Image as ImageIcon, Banknote, Wallet, CreditCard, AlertCircle } from "lucide-react";
 import { Link } from "wouter";
 import OrderHistoryTimeline from "@/components/OrderHistoryTimeline";
 import CancelOrderModal from "@/components/CancelOrderModal";
@@ -46,8 +46,11 @@ export default function OrderDetail() {
   const [notes, setNotes] = useState("");
   const [deliveredItems, setDeliveredItems] = useState<Record<number, number>>({});
   const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [noCollection, setNoCollection] = useState(false);
+  const [noCollectionReason, setNoCollectionReason] = useState("");
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
 
   const uploadReceiptFile = async (file: File): Promise<string | null> => {
@@ -105,6 +108,8 @@ export default function OrderDetail() {
     setPaymentImageUrl("");
     setNotes("");
     setExpenses([]);
+    setNoCollection(false);
+    setNoCollectionReason("");
     setIsLogModalOpen(true);
   };
 
@@ -130,6 +135,8 @@ export default function OrderDetail() {
   const totalExpenses = expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
   const totalDeliveredQty = Object.values(deliveredItems).reduce((s, v) => s + v, 0);
 
+  const showReceiptUpload = paymentMethod === "transfer" || paymentMethod === "wallet";
+
   const handleLogSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const items = order.items.map(item => ({
@@ -144,13 +151,14 @@ export default function OrderDetail() {
     logMut.mutate({
       data: {
         orderId,
-        collectedAmount,
+        collectedAmount: noCollection ? "0" : collectedAmount,
         deliveredQuantity: totalDeliveredQty,
         fuelExpense: fuelTotal.toString(),
         otherExpenses: otherTotal.toString(),
         notes,
-        paymentMethod,
-        paymentImageUrl: paymentImageUrl || undefined,
+        paymentMethod: noCollection ? "cash" : paymentMethod,
+        paymentImageUrl: (!noCollection && paymentImageUrl) ? paymentImageUrl : undefined,
+        noCollectionReason: noCollection ? noCollectionReason : undefined,
         items,
         expenses: validExpenses.map(ex => ({
           category: ex.category,
@@ -208,11 +216,18 @@ export default function OrderDetail() {
           <h3 className="font-bold text-lg mb-4 text-emerald-800 flex items-center gap-2"><CheckCircle2 className="w-5 h-5"/> تم التسليم</h3>
           {logs.map(log => (
             <div key={log.id} className="text-sm space-y-3 text-emerald-900">
-              <div className="flex justify-between font-bold text-base border-b border-emerald-200 pb-2 mb-2">
-                <span>المبلغ المحصل:</span>
-                <span className="text-emerald-700">{formatCurrency(log.collectedAmount)}</span>
-              </div>
-              {log.paymentMethod && (
+              {log.noCollectionReason ? (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                  <p className="font-bold text-amber-800 flex items-center gap-2 mb-1"><AlertCircle className="w-4 h-4"/> لم يتم التحصيل</p>
+                  <p className="text-xs text-amber-700">السبب: {log.noCollectionReason}</p>
+                </div>
+              ) : (
+                <div className="flex justify-between font-bold text-base border-b border-emerald-200 pb-2 mb-2">
+                  <span>المبلغ المحصل:</span>
+                  <span className="text-emerald-700">{formatCurrency(log.collectedAmount)}</span>
+                </div>
+              )}
+              {!log.noCollectionReason && log.paymentMethod && (
                 <div className="flex justify-between text-xs">
                   <span>طريقة الدفع:</span>
                   <span className="font-semibold">{paymentMethodConfig.find(p => p.value === log.paymentMethod)?.label ?? log.paymentMethod}</span>
@@ -280,75 +295,112 @@ export default function OrderDetail() {
       <Modal isOpen={isLogModalOpen} onClose={() => setIsLogModalOpen(false)} title="تسجيل بيانات التوصيل">
         <form onSubmit={handleLogSubmit} className="space-y-6 max-h-[75vh] overflow-y-auto pb-2 px-1">
 
-          {/* Collected Amount */}
-          <div className="p-4 bg-primary/5 rounded-xl border border-primary/20">
-            <p className="text-sm text-primary mb-1">الإجمالي المطلوب من العميل:</p>
-            <p className="text-xl font-bold text-primary mb-3">{formatCurrency(totalAmount)}</p>
-            <label className="block text-sm font-medium mb-1.5">المبلغ المحصل فعلياً *</label>
-            <input
-              required
-              type="number"
-              step="0.01"
-              value={collectedAmount}
-              onChange={e => setCollectedAmount(e.target.value)}
-              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-            />
+          {/* No Collection Toggle */}
+          <div
+            onClick={() => { setNoCollection(v => !v); setNoCollectionReason(""); }}
+            className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all select-none ${noCollection ? "border-amber-400 bg-amber-50" : "border-border bg-secondary/20 hover:border-border/80"}`}
+          >
+            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${noCollection ? "border-amber-500 bg-amber-500" : "border-muted-foreground"}`}>
+              {noCollection && <svg viewBox="0 0 12 12" className="w-3 h-3 text-white fill-current"><path d="M1 6l3.5 3.5L11 2"/></svg>}
+            </div>
+            <div>
+              <p className={`font-bold text-sm ${noCollection ? "text-amber-800" : "text-foreground"}`}>لم يتم تحصيل أي مبالغ</p>
+              <p className="text-xs text-muted-foreground">اختر هذا الخيار إذا لم يدفع العميل أي مبلغ</p>
+            </div>
+            <AlertCircle className={`w-5 h-5 mr-auto shrink-0 ${noCollection ? "text-amber-500" : "text-muted-foreground/40"}`} />
           </div>
 
-          {/* Payment Method */}
-          <div>
-            <p className="text-sm font-medium mb-2">طريقة التحصيل *</p>
-            <div className="grid grid-cols-3 gap-2">
-              {paymentMethodConfig.map(({ value, label, icon: Icon, color }) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => { setPaymentMethod(value); if (value !== "transfer") setPaymentImageUrl(""); }}
-                  className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all text-xs font-semibold ${paymentMethod === value ? color + " border-current" : "border-border text-muted-foreground bg-secondary/20"}`}
-                >
-                  <Icon className="w-5 h-5" />
-                  {label}
-                </button>
-              ))}
+          {/* No Collection Reason */}
+          {noCollection && (
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
+              <label className="block text-sm font-bold text-amber-800">سبب عدم التحصيل *</label>
+              <textarea
+                required={noCollection}
+                value={noCollectionReason}
+                onChange={e => setNoCollectionReason(e.target.value)}
+                rows={2}
+                placeholder="مثال: العميل طلب التأجيل، لم يكن موجوداً، وعد بالدفع لاحقاً..."
+                className="w-full rounded-xl border border-amber-300 bg-white px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-amber-400/50"
+              />
             </div>
+          )}
 
-            {/* Receipt Upload (transfer only) */}
-            {paymentMethod === "transfer" && (
-              <div className="mt-3">
-                <p className="text-xs font-medium text-muted-foreground mb-2">صورة إيصال التحويل (اختيارية)</p>
+          {/* Collected Amount + Payment Method — hidden when no-collection */}
+          {!noCollection && (
+            <>
+              {/* Collected Amount */}
+              <div className="p-4 bg-primary/5 rounded-xl border border-primary/20">
+                <p className="text-sm text-primary mb-1">الإجمالي المطلوب من العميل:</p>
+                <p className="text-xl font-bold text-primary mb-3">{formatCurrency(totalAmount)}</p>
+                <label className="block text-sm font-medium mb-1.5">المبلغ المحصل فعلياً *</label>
                 <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      const url = await uploadReceiptFile(file);
-                      if (url) setPaymentImageUrl(url);
-                    }
-                  }}
+                  required={!noCollection}
+                  type="number"
+                  step="0.01"
+                  value={collectedAmount}
+                  onChange={e => setCollectedAmount(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
-                {paymentImageUrl ? (
-                  <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-xl">
-                    <ImageIcon className="w-4 h-4 text-blue-600 shrink-0" />
-                    <span className="text-xs text-blue-700 flex-1 truncate">تم رفع الإيصال بنجاح</span>
-                    <button type="button" onClick={() => { setPaymentImageUrl(""); if (fileInputRef.current) fileInputRef.current.value = ""; }} className="text-xs text-destructive">إزالة</button>
+              </div>
+
+              {/* Payment Method */}
+              <div>
+                <p className="text-sm font-medium mb-2">طريقة التحصيل *</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {paymentMethodConfig.map(({ value, label, icon: Icon, color }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => { setPaymentMethod(value); setPaymentImageUrl(""); }}
+                      className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all text-xs font-semibold ${paymentMethod === value ? color + " border-current" : "border-border text-muted-foreground bg-secondary/20"}`}
+                    >
+                      <Icon className="w-5 h-5" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Receipt Upload — for transfer OR wallet */}
+                {showReceiptUpload && (
+                  <div className="mt-3">
+                    <p className="text-xs font-medium text-muted-foreground mb-2">
+                      صورة إيصال {paymentMethod === "transfer" ? "التحويل البنكي" : "المحفظة"} (اختيارية)
+                    </p>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const url = await uploadReceiptFile(file);
+                          if (url) setPaymentImageUrl(url);
+                        }
+                      }}
+                    />
+                    {paymentImageUrl ? (
+                      <div className={`flex items-center gap-2 p-3 border rounded-xl ${paymentMethod === "wallet" ? "bg-violet-50 border-violet-200" : "bg-blue-50 border-blue-200"}`}>
+                        <ImageIcon className={`w-4 h-4 shrink-0 ${paymentMethod === "wallet" ? "text-violet-600" : "text-blue-600"}`} />
+                        <span className={`text-xs flex-1 truncate ${paymentMethod === "wallet" ? "text-violet-700" : "text-blue-700"}`}>تم رفع الإيصال بنجاح</span>
+                        <button type="button" onClick={() => { setPaymentImageUrl(""); if (fileInputRef.current) fileInputRef.current.value = ""; }} className="text-xs text-destructive">إزالة</button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading}
+                        className={`w-full flex items-center gap-2 p-3 border-2 border-dashed rounded-xl text-sm transition-colors disabled:opacity-50 ${paymentMethod === "wallet" ? "border-violet-300 text-violet-700 hover:bg-violet-50" : "border-blue-300 text-blue-700 hover:bg-blue-50"}`}
+                      >
+                        <Upload className="w-4 h-4" />
+                        {isUploading ? "جاري الرفع..." : "رفع صورة الإيصال"}
+                      </button>
+                    )}
                   </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploading}
-                    className="w-full flex items-center gap-2 p-3 border-2 border-dashed border-blue-300 rounded-xl text-sm text-blue-700 hover:bg-blue-50 transition-colors disabled:opacity-50"
-                  >
-                    <Upload className="w-4 h-4" />
-                    {isUploading ? "جاري الرفع..." : "رفع صورة الإيصال"}
-                  </button>
                 )}
               </div>
-            )}
-          </div>
+            </>
+          )}
 
           {/* Delivered Items */}
           <div>

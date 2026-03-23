@@ -47,6 +47,7 @@ async function formatLog(log: typeof deliveryLogsTable.$inferSelect) {
     notes: log.notes,
     paymentMethod: log.paymentMethod,
     paymentImageUrl: log.paymentImageUrl,
+    noCollectionReason: log.noCollectionReason,
     loggedAt: log.loggedAt.toISOString(),
     items: items.map(i => ({
       id: i.id,
@@ -122,6 +123,7 @@ router.post("/delivery-logs", authenticateToken, async (req: Request, res: Respo
       notes: body.data.notes ?? null,
       paymentMethod: body.data.paymentMethod ?? "cash",
       paymentImageUrl: body.data.paymentImageUrl ?? null,
+      noCollectionReason: body.data.noCollectionReason ?? null,
     }).returning();
 
     const logId = inserted.id;
