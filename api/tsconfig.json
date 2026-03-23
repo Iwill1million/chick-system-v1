@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "moduleResolution": "bundler",
+    "module": "esnext",
+    "strict": false,
+    "noImplicitAny": false,
+    "skipLibCheck": true
+  }
+}
