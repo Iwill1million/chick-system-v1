@@ -1,6 +1,14 @@
 import { Router, type IRouter, Request, Response } from "express";
 import { db } from "@workspace/db";
-import { deliveryLogsTable, notificationsTable, usersTable, ordersTable } from "@workspace/db/schema";
+import {
+  deliveryLogsTable,
+  deliveryLogItemsTable,
+  deliveryLogExpensesTable,
+  notificationsTable,
+  usersTable,
+  ordersTable,
+  productsTable,
+} from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { authenticateToken, AuthPayload } from "../middlewares/auth";
 import { CreateDeliveryLogBody } from "@workspace/api-zod";
@@ -9,7 +17,24 @@ const router: IRouter = Router();
 
 type AuthRequest = Request & { user: AuthPayload };
 
-function formatLog(log: typeof deliveryLogsTable.$inferSelect) {
+async function formatLog(log: typeof deliveryLogsTable.$inferSelect) {
+  const items = await db
+    .select({
+      id: deliveryLogItemsTable.id,
+      productId: deliveryLogItemsTable.productId,
+      productName: productsTable.name,
+      orderedQty: deliveryLogItemsTable.orderedQty,
+      deliveredQty: deliveryLogItemsTable.deliveredQty,
+    })
+    .from(deliveryLogItemsTable)
+    .leftJoin(productsTable, eq(deliveryLogItemsTable.productId, productsTable.id))
+    .where(eq(deliveryLogItemsTable.deliveryLogId, log.id));
+
+  const expenses = await db
+    .select()
+    .from(deliveryLogExpensesTable)
+    .where(eq(deliveryLogExpensesTable.deliveryLogId, log.id));
+
   return {
     id: log.id,
     orderId: log.orderId,
@@ -19,7 +44,22 @@ function formatLog(log: typeof deliveryLogsTable.$inferSelect) {
     fuelExpense: log.fuelExpense,
     otherExpenses: log.otherExpenses,
     notes: log.notes,
+    paymentMethod: log.paymentMethod,
+    paymentImageUrl: log.paymentImageUrl,
     loggedAt: log.loggedAt.toISOString(),
+    items: items.map(i => ({
+      id: i.id,
+      productId: i.productId,
+      productName: i.productName ?? undefined,
+      orderedQty: i.orderedQty,
+      deliveredQty: i.deliveredQty,
+    })),
+    expenses: expenses.map(e => ({
+      id: e.id,
+      category: e.category,
+      amount: e.amount,
+      description: e.description,
+    })),
   };
 }
 
@@ -58,7 +98,33 @@ router.post("/delivery-logs", authenticateToken, async (req: Request, res: Respo
     fuelExpense: body.data.fuelExpense,
     otherExpenses: body.data.otherExpenses,
     notes: body.data.notes ?? null,
+    paymentMethod: body.data.paymentMethod ?? "cash",
+    paymentImageUrl: body.data.paymentImageUrl ?? null,
   }).returning();
+
+  const logId = inserted[0].id;
+
+  if (body.data.items && body.data.items.length > 0) {
+    await db.insert(deliveryLogItemsTable).values(
+      body.data.items.map(item => ({
+        deliveryLogId: logId,
+        productId: item.productId,
+        orderedQty: item.orderedQty,
+        deliveredQty: item.deliveredQty,
+      }))
+    );
+  }
+
+  if (body.data.expenses && body.data.expenses.length > 0) {
+    await db.insert(deliveryLogExpensesTable).values(
+      body.data.expenses.map(exp => ({
+        deliveryLogId: logId,
+        category: exp.category,
+        amount: exp.amount,
+        description: exp.description ?? null,
+      }))
+    );
+  }
 
   const admins = await db.select().from(usersTable).where(eq(usersTable.role, "admin"));
   if (admins.length > 0) {
@@ -72,7 +138,8 @@ router.post("/delivery-logs", authenticateToken, async (req: Request, res: Respo
     );
   }
 
-  res.status(201).json(formatLog(inserted[0]));
+  const result = await formatLog(inserted[0]);
+  res.status(201).json(result);
 });
 
 router.get("/delivery-logs/:orderId", authenticateToken, async (req: Request, res: Response) => {
@@ -89,7 +156,8 @@ router.get("/delivery-logs/:orderId", authenticateToken, async (req: Request, re
   }
 
   const logs = await db.select().from(deliveryLogsTable).where(eq(deliveryLogsTable.orderId, orderId));
-  res.json(logs.map(formatLog));
+  const result = await Promise.all(logs.map(formatLog));
+  res.json(result);
 });
 
 export default router;

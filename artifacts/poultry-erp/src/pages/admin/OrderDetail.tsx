@@ -4,11 +4,24 @@ import { useGetOrder, useGetDeliveryLogs, useUpdateOrderStatus, customFetch } fr
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, Badge, Button } from "@/components/ui-components";
 import { formatCurrency, formatDate, statusColors, statusLabels } from "@/lib/utils";
-import { MapPin, Phone, Calendar, Package, ArrowRight, Truck, CheckCircle2, Printer, RotateCcw, MessageCircle, Send, AlertCircle, XCircle } from "lucide-react";
+import { MapPin, Phone, Calendar, Package, ArrowRight, Truck, CheckCircle2, Printer, RotateCcw, MessageCircle, Send, AlertCircle, XCircle, Banknote, CreditCard, Wallet, Image as ImageIcon } from "lucide-react";
 import { Link } from "wouter";
 import PrintInvoice from "@/components/PrintInvoice";
 import OrderHistoryTimeline from "@/components/OrderHistoryTimeline";
 import CancelOrderModal from "@/components/CancelOrderModal";
+
+const expenseCategoryLabels: Record<string, string> = {
+  fuel: "وقود",
+  food: "أكل ومشروبات",
+  collection_fee: "رسوم تحصيل",
+  other: "أخرى",
+};
+
+const paymentMethodConfig: Record<string, { label: string; icon: typeof Banknote; color: string }> = {
+  cash: { label: "كاش", icon: Banknote, color: "text-emerald-700 bg-emerald-50 border-emerald-200" },
+  transfer: { label: "تحويل بنكي", icon: CreditCard, color: "text-blue-700 bg-blue-50 border-blue-200" },
+  wallet: { label: "محفظة إلكترونية", icon: Wallet, color: "text-violet-700 bg-violet-50 border-violet-200" },
+};
 
 interface CompanySettings {
   name: string;
@@ -244,24 +257,96 @@ export default function AdminOrderDetail() {
             <h3 className="font-bold text-lg mb-4 text-emerald-800 flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5" /> سجل التوصيل
             </h3>
-            {logs.map(log => (
-              <div key={log.id} className="text-sm space-y-2 text-emerald-900">
-                <div className="flex justify-between">
-                  <span>المبلغ المحصل:</span>
-                  <span className="font-bold">{formatCurrency(log.collectedAmount)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>الكمية المسلمة:</span>
-                  <span className="font-bold">{log.deliveredQuantity}</span>
-                </div>
-                {(parseFloat(log.fuelExpense) > 0 || parseFloat(log.otherExpenses) > 0) && (
-                  <div className="flex justify-between text-xs opacity-80">
-                    <span>المصاريف:</span>
-                    <span>{formatCurrency(parseFloat(log.fuelExpense) + parseFloat(log.otherExpenses))}</span>
+            {logs.map(log => {
+              const pmCfg = log.paymentMethod ? paymentMethodConfig[log.paymentMethod] : null;
+              const totalExpenses = log.expenses?.reduce((s, e) => s + parseFloat(e.amount), 0) ?? 0;
+              return (
+                <div key={log.id} className="space-y-4">
+                  {/* Collected amount + payment method */}
+                  <div className="flex items-center justify-between p-3 bg-emerald-100/60 rounded-xl">
+                    <div>
+                      <p className="text-xs text-emerald-700 mb-0.5">المبلغ المحصل</p>
+                      <p className="font-bold text-xl text-emerald-900">{formatCurrency(log.collectedAmount)}</p>
+                    </div>
+                    {pmCfg && (
+                      <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-sm font-semibold ${pmCfg.color}`}>
+                        <pmCfg.icon className="w-4 h-4" />
+                        {pmCfg.label}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            ))}
+
+                  {/* Receipt image */}
+                  {log.paymentImageUrl && (
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl">
+                      <p className="text-xs text-blue-700 font-semibold mb-2 flex items-center gap-1"><ImageIcon className="w-3.5 h-3.5" /> إيصال التحويل</p>
+                      <a href={`/api/storage${log.paymentImageUrl}`} target="_blank" rel="noreferrer" className="block">
+                        <img
+                          src={`/api/storage${log.paymentImageUrl}`}
+                          alt="إيصال التحويل"
+                          className="max-h-40 rounded-lg object-contain border border-blue-200 cursor-pointer hover:opacity-90 transition"
+                        />
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Delivered items */}
+                  {log.items && log.items.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-emerald-700 mb-2">المنتجات المسلّمة</p>
+                      <div className="overflow-hidden rounded-xl border border-emerald-200">
+                        <table className="w-full text-sm">
+                          <thead className="bg-emerald-100/80">
+                            <tr>
+                              <th className="px-3 py-2 text-right font-semibold text-emerald-800">المنتج</th>
+                              <th className="px-3 py-2 text-center font-semibold text-emerald-800">المطلوب</th>
+                              <th className="px-3 py-2 text-center font-semibold text-emerald-800">المسلّم</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {log.items.map(item => (
+                              <tr key={item.id} className="border-t border-emerald-100">
+                                <td className="px-3 py-2 font-medium text-emerald-900">{item.productName}</td>
+                                <td className="px-3 py-2 text-center text-emerald-700">{item.orderedQty}</td>
+                                <td className="px-3 py-2 text-center font-bold text-emerald-900">{item.deliveredQty}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Expenses */}
+                  {log.expenses && log.expenses.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-amber-700 mb-2">بنود المصاريف</p>
+                      <div className="space-y-1.5">
+                        {log.expenses.map(exp => (
+                          <div key={exp.id} className="flex items-center justify-between p-2.5 bg-amber-50 border border-amber-100 rounded-xl text-sm">
+                            <div>
+                              <span className="font-medium text-amber-900">{expenseCategoryLabels[exp.category]}</span>
+                              {exp.description && <span className="text-xs text-amber-700 mr-2">— {exp.description}</span>}
+                            </div>
+                            <span className="font-bold text-amber-900">{formatCurrency(exp.amount)}</span>
+                          </div>
+                        ))}
+                        <div className="flex justify-between px-2.5 pt-1 font-semibold text-sm text-amber-800">
+                          <span>إجمالي المصاريف</span>
+                          <span>{formatCurrency(totalExpenses.toString())}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {log.notes && (
+                    <div className="p-3 bg-secondary/30 rounded-xl text-sm text-muted-foreground">
+                      <span className="font-semibold text-foreground ml-1">ملاحظات:</span>{log.notes}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </Card>
         )}
 

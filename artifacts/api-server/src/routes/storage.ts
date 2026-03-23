@@ -14,7 +14,6 @@ const objectStorageService = new ObjectStorageService();
 router.post(
   "/storage/uploads/request-url",
   authenticateToken,
-  requireAdmin,
   async (req: Request, res: Response) => {
     const parsed = RequestUploadUrlBody.safeParse(req.body);
     if (!parsed.success) {
@@ -44,7 +43,6 @@ router.post(
 router.post(
   "/storage/uploads/complete",
   authenticateToken,
-  requireAdmin,
   async (req: Request, res: Response) => {
     const { objectPath } = req.body ?? {};
     if (typeof objectPath !== "string" || !objectPath.startsWith("/objects/")) {

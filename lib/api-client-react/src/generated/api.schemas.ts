@@ -228,6 +228,21 @@ export interface OrderHistoryEntry {
   changedAt: string;
 }
 
+export interface DeliveryLogItemResponse {
+  id: number;
+  productId: number;
+  productName?: string;
+  orderedQty: number;
+  deliveredQty: number;
+}
+
+export interface DeliveryLogExpenseResponse {
+  id: number;
+  category: "fuel" | "food" | "collection_fee" | "other";
+  amount: string;
+  description?: string | null;
+}
+
 export interface DeliveryLog {
   id: number;
   orderId: number;
@@ -237,7 +252,23 @@ export interface DeliveryLog {
   fuelExpense: string;
   otherExpenses: string;
   notes?: string | null;
+  paymentMethod?: "cash" | "transfer" | "wallet" | null;
+  paymentImageUrl?: string | null;
+  items?: DeliveryLogItemResponse[];
+  expenses?: DeliveryLogExpenseResponse[];
   loggedAt: string;
+}
+
+export interface DeliveryLogItemInput {
+  productId: number;
+  orderedQty: number;
+  deliveredQty: number;
+}
+
+export interface DeliveryLogExpenseInput {
+  category: "fuel" | "food" | "collection_fee" | "other";
+  amount: string;
+  description?: string;
 }
 
 export interface CreateDeliveryLogRequest {
@@ -247,6 +278,10 @@ export interface CreateDeliveryLogRequest {
   fuelExpense: string;
   otherExpenses: string;
   notes?: string;
+  paymentMethod?: "cash" | "transfer" | "wallet";
+  paymentImageUrl?: string;
+  items?: DeliveryLogItemInput[];
+  expenses?: DeliveryLogExpenseInput[];
 }
 
 export interface NotificationItem {

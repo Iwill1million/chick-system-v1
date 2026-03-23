@@ -675,6 +675,18 @@ export const GetOrderHistoryResponse = zod.array(GetOrderHistoryResponseItem);
 /**
  * @summary Create a delivery log
  */
+export const DeliveryLogItemInput = zod.object({
+  productId: zod.number(),
+  orderedQty: zod.number(),
+  deliveredQty: zod.number(),
+});
+
+export const DeliveryLogExpenseInput = zod.object({
+  category: zod.enum(["fuel", "food", "collection_fee", "other"]),
+  amount: zod.string(),
+  description: zod.string().optional(),
+});
+
 export const CreateDeliveryLogBody = zod.object({
   orderId: zod.number(),
   collectedAmount: zod.string(),
@@ -682,6 +694,10 @@ export const CreateDeliveryLogBody = zod.object({
   fuelExpense: zod.string(),
   otherExpenses: zod.string(),
   notes: zod.string().optional(),
+  paymentMethod: zod.enum(["cash", "transfer", "wallet"]).optional(),
+  paymentImageUrl: zod.string().optional(),
+  items: zod.array(DeliveryLogItemInput).optional(),
+  expenses: zod.array(DeliveryLogExpenseInput).optional(),
 });
 
 /**
@@ -689,6 +705,21 @@ export const CreateDeliveryLogBody = zod.object({
  */
 export const GetDeliveryLogsParams = zod.object({
   orderId: zod.coerce.number(),
+});
+
+export const DeliveryLogItemResponse = zod.object({
+  id: zod.number(),
+  productId: zod.number(),
+  productName: zod.string().optional(),
+  orderedQty: zod.number(),
+  deliveredQty: zod.number(),
+});
+
+export const DeliveryLogExpenseResponse = zod.object({
+  id: zod.number(),
+  category: zod.enum(["fuel", "food", "collection_fee", "other"]),
+  amount: zod.string(),
+  description: zod.string().nullish(),
 });
 
 export const GetDeliveryLogsResponseItem = zod.object({
@@ -700,6 +731,10 @@ export const GetDeliveryLogsResponseItem = zod.object({
   fuelExpense: zod.string(),
   otherExpenses: zod.string(),
   notes: zod.string().nullish(),
+  paymentMethod: zod.enum(["cash", "transfer", "wallet"]).nullish(),
+  paymentImageUrl: zod.string().nullish(),
+  items: zod.array(DeliveryLogItemResponse).optional(),
+  expenses: zod.array(DeliveryLogExpenseResponse).optional(),
   loggedAt: zod.string(),
 });
 export const GetDeliveryLogsResponse = zod.array(GetDeliveryLogsResponseItem);
