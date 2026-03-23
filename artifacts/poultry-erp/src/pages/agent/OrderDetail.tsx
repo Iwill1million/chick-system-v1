@@ -118,7 +118,7 @@ export default function OrderDetail() {
   };
 
   const handleCancelConfirm = () => {
-    statusMut.mutate({ id: orderId, data: { status: "cancelled", reason: cancelReason.trim() || undefined } }, {
+    statusMut.mutate({ id: orderId, data: { status: "cancelled", reason: cancelReason.trim() || undefined } as any }, {
       onSuccess: () => {
         setIsCancelModalOpen(false);
         setCancelReason("");

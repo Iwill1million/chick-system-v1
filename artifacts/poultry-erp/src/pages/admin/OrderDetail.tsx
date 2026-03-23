@@ -72,7 +72,7 @@ export default function AdminOrderDetail() {
   });
 
   const handleCancelConfirm = () => {
-    cancelMut.mutate({ id: orderId, data: { status: "cancelled", reason: cancelReason.trim() || undefined } });
+    cancelMut.mutate({ id: orderId, data: { status: "cancelled", reason: cancelReason.trim() || undefined } as any });
   };
 
   const { data: company } = useQuery<CompanySettings>({
