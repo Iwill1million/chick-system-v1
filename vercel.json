@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "pnpm run build",
+  "buildCommand": "pnpm run typecheck:libs && pnpm --filter @workspace/poultry-erp run build",
   "outputDirectory": "artifacts/poultry-erp/dist/public",
   "rewrites": [
     {
