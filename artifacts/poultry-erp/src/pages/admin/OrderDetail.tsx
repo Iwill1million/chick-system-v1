@@ -280,9 +280,9 @@ export default function AdminOrderDetail() {
                   {log.paymentImageUrl && (
                     <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl">
                       <p className="text-xs text-blue-700 font-semibold mb-2 flex items-center gap-1"><ImageIcon className="w-3.5 h-3.5" /> إيصال التحويل</p>
-                      <a href={`/api/storage${log.paymentImageUrl}`} target="_blank" rel="noreferrer" className="block">
+                      <a href={log.paymentImageUrl} target="_blank" rel="noreferrer" className="block">
                         <img
-                          src={`/api/storage${log.paymentImageUrl}`}
+                          src={log.paymentImageUrl}
                           alt="إيصال التحويل"
                           className="max-h-40 rounded-lg object-contain border border-blue-200 cursor-pointer hover:opacity-90 transition"
                         />

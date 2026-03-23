@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useParams } from "wouter";
-import { useGetOrder, useUpdateOrderStatus, useCreateDeliveryLog, useGetDeliveryLogs, UpdateOrderStatusRequestStatus } from "@workspace/api-client-react";
+import { useGetOrder, useUpdateOrderStatus, useCreateDeliveryLog, useGetDeliveryLogs, UpdateOrderStatusRequestStatus, customFetch } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button, Card, Badge, Modal } from "@/components/ui-components";
 import { formatCurrency, formatDate, statusColors, statusLabels } from "@/lib/utils";
@@ -8,7 +8,6 @@ import { MapPin, Phone, Calendar, Package, ArrowRight, Truck, CheckCircle2, XCir
 import { Link } from "wouter";
 import OrderHistoryTimeline from "@/components/OrderHistoryTimeline";
 import CancelOrderModal from "@/components/CancelOrderModal";
-import { useUpload } from "@workspace/object-storage-web";
 
 const expenseCategoryLabels: Record<string, string> = {
   fuel: "وقود",
@@ -49,9 +48,34 @@ export default function OrderDetail() {
   const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { uploadFile, isUploading } = useUpload({
-    onSuccess: (res) => setPaymentImageUrl(res.objectPath),
-  });
+  const [isUploading, setIsUploading] = useState(false);
+
+  const uploadReceiptFile = async (file: File): Promise<string | null> => {
+    setIsUploading(true);
+    try {
+      const { uploadURL, objectPath } = await customFetch<{ uploadURL: string; objectPath: string }>(
+        "/api/storage/uploads/request-url",
+        {
+          method: "POST",
+          body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || "application/octet-stream" }),
+        }
+      );
+      await fetch(uploadURL, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+      });
+      const { serveUrl } = await customFetch<{ serveUrl: string; objectPath: string }>(
+        "/api/storage/uploads/complete",
+        { method: "POST", body: JSON.stringify({ objectPath }) }
+      );
+      return serveUrl;
+    } catch {
+      return null;
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const statusMut = useUpdateOrderStatus({
     mutation: { onSuccess: () => {
@@ -299,7 +323,10 @@ export default function OrderDetail() {
                   className="hidden"
                   onChange={async (e) => {
                     const file = e.target.files?.[0];
-                    if (file) await uploadFile(file);
+                    if (file) {
+                      const url = await uploadReceiptFile(file);
+                      if (url) setPaymentImageUrl(url);
+                    }
                   }}
                 />
                 {paymentImageUrl ? (
