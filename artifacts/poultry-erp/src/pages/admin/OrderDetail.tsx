@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useParams } from "wouter";
-import { useGetOrder, useGetDeliveryLogs, customFetch } from "@workspace/api-client-react";
+import { useGetOrder, useGetDeliveryLogs, useUpdateOrderStatus, customFetch } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, Badge } from "@/components/ui-components";
+import { Card, Badge, Button, Modal } from "@/components/ui-components";
 import { formatCurrency, formatDate, statusColors, statusLabels } from "@/lib/utils";
-import { MapPin, Phone, Calendar, Package, ArrowRight, Truck, CheckCircle2, Printer, RotateCcw, MessageCircle, Send, AlertCircle } from "lucide-react";
+import { MapPin, Phone, Calendar, Package, ArrowRight, Truck, CheckCircle2, Printer, RotateCcw, MessageCircle, Send, AlertCircle, XCircle, AlertTriangle } from "lucide-react";
 import { Link } from "wouter";
 import PrintInvoice from "@/components/PrintInvoice";
 import OrderHistoryTimeline from "@/components/OrderHistoryTimeline";
@@ -40,9 +40,27 @@ export default function AdminOrderDetail() {
   const queryClient = useQueryClient();
 
   const [sendResult, setSendResult] = useState<Record<string, { ok: boolean; error?: string } | null>>({});
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
 
   const { data: order, isLoading } = useGetOrder(orderId);
   const { data: logs = [] } = useGetDeliveryLogs(orderId);
+
+  const cancelMut = useUpdateOrderStatus({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: [`/api/orders/${orderId}`] });
+        queryClient.invalidateQueries({ queryKey: [`/api/orders/${orderId}/history`] });
+        setIsCancelModalOpen(false);
+        setCancelReason("");
+      }
+    }
+  });
+
+  const handleCancelConfirm = () => {
+    cancelMut.mutate({ id: orderId, data: { status: "cancelled", reason: cancelReason.trim() || undefined } });
+  };
+
   const { data: company } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
     queryFn: () => customFetch<CompanySettings>("/api/settings", { method: "GET" }),
@@ -291,7 +309,51 @@ export default function AdminOrderDetail() {
 
         {/* Order History Timeline */}
         <OrderHistoryTimeline orderId={orderId} />
+
+        {/* Cancel Order Button (Admin) */}
+        {['pending', 'preparing', 'delivering'].includes(order.status) && (
+          <div className="flex flex-col items-end gap-1">
+            <Button
+              variant="outline"
+              className="w-full text-destructive border-destructive/30 hover:bg-destructive/10"
+              onClick={() => setIsCancelModalOpen(true)}
+              isLoading={cancelMut.isPending}
+            >
+              <XCircle className="w-4 h-4 ml-2" /> إلغاء الطلب
+            </Button>
+            <p className="text-xs text-muted-foreground text-center w-full">سيتم إعادة الكميات المحجوزة إلى المخزون تلقائياً</p>
+          </div>
+        )}
       </div>
+
+      {/* Cancel Confirmation Modal */}
+      <Modal isOpen={isCancelModalOpen} onClose={() => { setIsCancelModalOpen(false); setCancelReason(""); }} title="تأكيد إلغاء الطلب">
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 p-4 bg-destructive/5 border border-destructive/20 rounded-xl">
+            <AlertTriangle className="w-5 h-5 text-destructive mt-0.5 shrink-0" />
+            <div className="text-sm">
+              <p className="font-bold text-destructive mb-1">هل أنت متأكد من إلغاء الطلب؟</p>
+              <p className="text-muted-foreground">سيتم إعادة كميات المنتجات المحجوزة إلى المخزون تلقائياً ولا يمكن التراجع عن هذا الإجراء.</p>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1.5">سبب الإلغاء <span className="text-muted-foreground font-normal">(اختياري)</span></label>
+            <textarea
+              value={cancelReason}
+              onChange={e => setCancelReason(e.target.value)}
+              placeholder="أدخل سبب الإلغاء..."
+              rows={3}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-destructive/30 focus:border-destructive/50"
+            />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <Button variant="outline" className="flex-1" onClick={() => { setIsCancelModalOpen(false); setCancelReason(""); }}>تراجع</Button>
+            <Button className="flex-1 bg-destructive hover:bg-destructive/90 text-white" onClick={handleCancelConfirm} isLoading={cancelMut.isPending}>
+              <XCircle className="w-4 h-4 ml-2" /> تأكيد الإلغاء
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 }

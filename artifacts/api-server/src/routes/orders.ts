@@ -364,6 +364,7 @@ router.patch("/orders/:id/status", authenticateToken, async (req: Request, res: 
       changedBy: authReq.user.userId,
       oldStatus: currentStatus as typeof orderHistoryTable.$inferInsert["oldStatus"],
       newStatus: newStatus as typeof orderHistoryTable.$inferInsert["newStatus"],
+      notes: body.data.reason ?? null,
     });
 
     const admins = await tx.select().from(usersTable).where(eq(usersTable.role, "admin"));
@@ -407,6 +408,7 @@ router.get("/orders/:id/history", authenticateToken, async (req: Request, res: R
       changedByName: usersTable.name,
       oldStatus: orderHistoryTable.oldStatus,
       newStatus: orderHistoryTable.newStatus,
+      notes: orderHistoryTable.notes,
       changedAt: orderHistoryTable.changedAt,
     })
     .from(orderHistoryTable)
@@ -420,6 +422,7 @@ router.get("/orders/:id/history", authenticateToken, async (req: Request, res: R
     changedBy: { id: row.changedById, name: row.changedByName ?? "مستخدم محذوف" },
     oldStatus: row.oldStatus,
     newStatus: row.newStatus,
+    notes: row.notes ?? null,
     changedAt: row.changedAt.toISOString(),
   })));
 });

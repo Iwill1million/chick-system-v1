@@ -33,6 +33,7 @@ interface HistoryEntry {
   changedBy: { id: number; name: string };
   oldStatus: string;
   newStatus: string;
+  notes?: string | null;
   changedAt: string;
 }
 
@@ -112,6 +113,12 @@ export default function OrderHistoryTimeline({ orderId }: Props) {
                 <span>بواسطة: <span className="font-semibold text-foreground">{entry.changedBy.name}</span></span>
                 <span>{formatDateTime(entry.changedAt)}</span>
               </div>
+              {entry.notes && (
+                <div className="mt-1.5 flex items-start gap-1.5 text-xs text-red-700 bg-red-50 border border-red-100 rounded-lg px-2.5 py-1.5">
+                  <span className="font-bold shrink-0">سبب الإلغاء:</span>
+                  <span className="italic">{entry.notes}</span>
+                </div>
+              )}
             </div>
           </div>
         ))}

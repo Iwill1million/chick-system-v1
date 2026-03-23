@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, timestamp, index } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, timestamp, index, text } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -10,6 +10,7 @@ export const orderHistoryTable = pgTable("order_history", {
   changedBy: integer("changed_by").notNull().references(() => usersTable.id),
   oldStatus: orderStatusEnum("old_status").notNull(),
   newStatus: orderStatusEnum("new_status").notNull(),
+  notes: text("notes"),
   changedAt: timestamp("changed_at").notNull().defaultNow(),
 }, (t) => [
   index("order_history_order_id_idx").on(t.orderId),

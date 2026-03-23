@@ -593,6 +593,7 @@ export const UpdateOrderStatusBody = zod.object({
     "delivered",
     "cancelled",
   ]),
+  reason: zod.string().optional(),
 });
 
 export const UpdateOrderStatusResponse = zod.object({

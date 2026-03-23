@@ -14,5 +14,6 @@ export interface OrderHistoryEntry {
   changedBy: OrderHistoryEntryChangedBy;
   oldStatus: OrderWithDetailsStatus;
   newStatus: OrderWithDetailsStatus;
+  notes?: string | null;
   changedAt: string;
 }
