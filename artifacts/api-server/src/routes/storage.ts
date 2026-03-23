@@ -11,6 +11,9 @@ import { authenticateToken, requireAdmin } from "../middlewares/auth";
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
 
+const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+
 router.post(
   "/storage/uploads/request-url",
   authenticateToken,
@@ -21,8 +24,19 @@ router.post(
       return;
     }
 
+    const { name, size, contentType } = parsed.data;
+
+    if (size > MAX_UPLOAD_SIZE_BYTES) {
+      res.status(400).json({ error: `حجم الملف يتجاوز الحد الأقصى (5 ميغابايت)` });
+      return;
+    }
+
+    if (!ALLOWED_IMAGE_TYPES.has(contentType)) {
+      res.status(400).json({ error: "نوع الملف غير مدعوم. يُسمح فقط بصور JPEG أو PNG أو WebP أو GIF" });
+      return;
+    }
+
     try {
-      const { name, size, contentType } = parsed.data;
       const uploadURL = await objectStorageService.getObjectEntityUploadURL();
       const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
 

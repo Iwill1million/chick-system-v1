@@ -7,6 +7,7 @@ import {
   notificationsTable,
   usersTable,
   ordersTable,
+  orderItemsTable,
   productsTable,
 } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
@@ -86,45 +87,69 @@ router.post("/delivery-logs", authenticateToken, async (req: Request, res: Respo
     return;
   }
 
+  if (body.data.items && body.data.items.length > 0) {
+    const orderItems = await db
+      .select({ productId: orderItemsTable.productId, quantity: orderItemsTable.quantity })
+      .from(orderItemsTable)
+      .where(eq(orderItemsTable.orderId, orderId));
+
+    const orderProductMap = new Map(orderItems.map(i => [i.productId, i.quantity]));
+
+    for (const item of body.data.items) {
+      if (!orderProductMap.has(item.productId)) {
+        res.status(400).json({ message: `المنتج ${item.productId} غير موجود في الطلب` });
+        return;
+      }
+      if (item.deliveredQty < 0) {
+        res.status(400).json({ message: "الكمية المسلمة لا يمكن أن تكون سالبة" });
+        return;
+      }
+    }
+  }
+
   const logAgentId = authReq.user.role === "admin" && order.agentId
     ? order.agentId
     : authReq.user.userId;
 
-  const inserted = await db.insert(deliveryLogsTable).values({
-    orderId,
-    agentId: logAgentId,
-    collectedAmount: body.data.collectedAmount,
-    deliveredQuantity: body.data.deliveredQuantity,
-    fuelExpense: body.data.fuelExpense,
-    otherExpenses: body.data.otherExpenses,
-    notes: body.data.notes ?? null,
-    paymentMethod: body.data.paymentMethod ?? "cash",
-    paymentImageUrl: body.data.paymentImageUrl ?? null,
-  }).returning();
+  const result = await db.transaction(async (tx) => {
+    const [inserted] = await tx.insert(deliveryLogsTable).values({
+      orderId,
+      agentId: logAgentId,
+      collectedAmount: body.data.collectedAmount,
+      deliveredQuantity: body.data.deliveredQuantity,
+      fuelExpense: body.data.fuelExpense,
+      otherExpenses: body.data.otherExpenses,
+      notes: body.data.notes ?? null,
+      paymentMethod: body.data.paymentMethod ?? "cash",
+      paymentImageUrl: body.data.paymentImageUrl ?? null,
+    }).returning();
 
-  const logId = inserted[0].id;
+    const logId = inserted.id;
 
-  if (body.data.items && body.data.items.length > 0) {
-    await db.insert(deliveryLogItemsTable).values(
-      body.data.items.map(item => ({
-        deliveryLogId: logId,
-        productId: item.productId,
-        orderedQty: item.orderedQty,
-        deliveredQty: item.deliveredQty,
-      }))
-    );
-  }
+    if (body.data.items && body.data.items.length > 0) {
+      await tx.insert(deliveryLogItemsTable).values(
+        body.data.items.map(item => ({
+          deliveryLogId: logId,
+          productId: item.productId,
+          orderedQty: item.orderedQty,
+          deliveredQty: item.deliveredQty,
+        }))
+      );
+    }
 
-  if (body.data.expenses && body.data.expenses.length > 0) {
-    await db.insert(deliveryLogExpensesTable).values(
-      body.data.expenses.map(exp => ({
-        deliveryLogId: logId,
-        category: exp.category,
-        amount: exp.amount,
-        description: exp.description ?? null,
-      }))
-    );
-  }
+    if (body.data.expenses && body.data.expenses.length > 0) {
+      await tx.insert(deliveryLogExpensesTable).values(
+        body.data.expenses.map(exp => ({
+          deliveryLogId: logId,
+          category: exp.category,
+          amount: exp.amount,
+          description: exp.description ?? null,
+        }))
+      );
+    }
+
+    return inserted;
+  });
 
   const admins = await db.select().from(usersTable).where(eq(usersTable.role, "admin"));
   if (admins.length > 0) {
@@ -138,8 +163,8 @@ router.post("/delivery-logs", authenticateToken, async (req: Request, res: Respo
     );
   }
 
-  const result = await formatLog(inserted[0]);
-  res.status(201).json(result);
+  const formatted = await formatLog(result);
+  res.status(201).json(formatted);
 });
 
 router.get("/delivery-logs/:orderId", authenticateToken, async (req: Request, res: Response) => {
@@ -156,8 +181,8 @@ router.get("/delivery-logs/:orderId", authenticateToken, async (req: Request, re
   }
 
   const logs = await db.select().from(deliveryLogsTable).where(eq(deliveryLogsTable.orderId, orderId));
-  const result = await Promise.all(logs.map(formatLog));
-  res.json(result);
+  const formatted = await Promise.all(logs.map(formatLog));
+  res.json(formatted);
 });
 
 export default router;
